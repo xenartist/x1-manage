@@ -11,10 +11,10 @@
 </head>
 <body>
     <div class="container">
-        <!-- Top left RPC endpoint -->
-        <div class="rpc-section-top">
-            <div class="rpc-select-wrapper">
-                <label for="rpcEndpoint">RPC Endpoint:</label>
+        <!-- Top right controls (RPC + Wallet) -->
+        <div class="top-controls">
+            <!-- RPC Endpoint selector -->
+            <div class="rpc-selector">
                 <div class="select-wrapper">
                     <i class="fas fa-server"></i>
                     <select id="rpcEndpoint" class="rpc-select">
@@ -22,22 +22,22 @@
                     </select>
                 </div>
             </div>
-        </div>
 
-        <!-- Top right wallet connection -->
-        <div class="wallet-section-top">
-            <button id="connectWallet" class="wallet-btn">
-                <i class="fas fa-wallet"></i>
-                Connect Backpack Wallet
-            </button>
-            <div id="walletInfo" class="wallet-info hidden">
-                <div class="wallet-connected">
-                    <i class="fas fa-check-circle"></i>
-                    <span>Connected:</span>
-                    <span id="walletAddress" class="wallet-address"></span>
-                    <button id="disconnectWallet" class="disconnect-btn">
-                        <i class="fas fa-times"></i>
-                    </button>
+            <!-- Wallet connection -->
+            <div class="wallet-section-top">
+                <button id="connectWallet" class="wallet-btn">
+                    <i class="fas fa-wallet"></i>
+                    Connect Backpack Wallet
+                </button>
+                <div id="walletInfo" class="wallet-info hidden">
+                    <div class="wallet-connected">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Connected:</span>
+                        <span id="walletAddress" class="wallet-address"></span>
+                        <button id="disconnectWallet" class="disconnect-btn">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
