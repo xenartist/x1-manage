@@ -218,22 +218,25 @@ body {
 /* Compact content layout */
 .info-content {
     display: flex;
+    justify-content: flex-start; /* Left align for addresses */
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
 }
 
-/* More compact address display */
+/* For number-only content, center align */
+.info-card:not(:has(.address)) .info-content {
+    justify-content: center;
+}
+
+/* Address display - full width without copy button */
 .address {
     font-family: 'Courier New', monospace;
     background: white;
-    padding: 6px 10px; /* Reduced padding */
-    border-radius: 4px; /* Smaller border radius */
+    padding: 8px 12px;
+    border-radius: 6px;
     border: 1px solid #e0e0e0;
-    font-size: 13px; /* Smaller font */
+    font-size: 14px;
     word-break: break-all;
-    flex-grow: 1;
-    margin-right: 8px; /* Reduced margin */
+    width: 100%;
     color: #333;
 }
 
@@ -248,21 +251,10 @@ body {
     white-space: nowrap;
 }
 
-/* Smaller copy button */
-.copy-btn {
-    background: #667eea;
-    color: white;
-    border: none;
-    border-radius: 4px; /* Smaller border radius */
-    padding: 6px 8px; /* Reduced padding */
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 12px;
-}
-
+/* Remove copy button styles since they're gone */
+.copy-btn,
 .copy-btn:hover {
-    background: #5a6fd8;
-    transform: scale(1.05);
+    display: none;
 }
 
 /* Footer */
@@ -537,11 +529,6 @@ body {
     .number {
         font-size: 0.9rem;
         padding: 3px 6px;
-    }
-    
-    .copy-btn {
-        padding: 5px 7px;
-        font-size: 11px;
     }
     
     .wallet-section-top {

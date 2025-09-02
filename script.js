@@ -473,33 +473,6 @@ function formatCommission(commission) {
     return `${commission}%`;
 }
 
-// Copy to clipboard functionality
-function copyToClipboard(elementId) {
-    const element = document.getElementById(elementId);
-    const text = element.textContent;
-    
-    navigator.clipboard.writeText(text).then(function() {
-        // Show a temporary success message
-        const originalText = element.textContent;
-        element.textContent = 'Copied!';
-        element.style.color = '#4caf50';
-        
-        setTimeout(() => {
-            element.textContent = originalText;
-            element.style.color = '';
-        }, 1000);
-    }).catch(function(err) {
-        console.error('Failed to copy text: ', err);
-        // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-    });
-}
-
 // UI helper functions
 function showLoading() {
     loadingSpinner.classList.remove('hidden');
