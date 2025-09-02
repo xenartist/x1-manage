@@ -11,27 +11,27 @@
 </head>
 <body>
     <div class="container">
+        <!-- Top right wallet connection -->
+        <div class="wallet-section-top">
+            <button id="connectWallet" class="wallet-btn">
+                <i class="fas fa-wallet"></i>
+                Connect Backpack Wallet
+            </button>
+            <div id="walletInfo" class="wallet-info hidden">
+                <div class="wallet-connected">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Connected:</span>
+                    <span id="walletAddress" class="wallet-address"></span>
+                    <button id="disconnectWallet" class="disconnect-btn">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <header class="header">
             <h1><i class="fas fa-vote-yea"></i> X1 Vote Account Explorer</h1>
             <p class="subtitle">Query vote account information on X1 blockchain</p>
-            
-            <!-- Wallet Connection Section -->
-            <div class="wallet-section">
-                <button id="connectWallet" class="wallet-btn">
-                    <i class="fas fa-wallet"></i>
-                    Connect Backpack Wallet
-                </button>
-                <div id="walletInfo" class="wallet-info hidden">
-                    <div class="wallet-connected">
-                        <i class="fas fa-check-circle"></i>
-                        <span>Connected:</span>
-                        <span id="walletAddress" class="wallet-address"></span>
-                        <button id="disconnectWallet" class="disconnect-btn">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
         </header>
 
         <div class="search-section">
