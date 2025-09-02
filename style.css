@@ -405,6 +405,8 @@ body {
     justify-content: space-between;
 }
 
+/* Top left RPC endpoint */
+.rpc-section-top {
     position: fixed;
     top: 20px;
     left: 20px; 
