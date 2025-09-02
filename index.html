@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>X1 Vote Account Explorer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <!-- Add Solana Web3.js SDK -->
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1><i class="fas fa-vote-yea"></i> X1 Vote Account Explorer</h1>
+            <p class="subtitle">Query vote account information on X1 blockchain</p>
+            
+            <!-- Wallet Connection Section -->
+            <div class="wallet-section">
+                <button id="connectWallet" class="wallet-btn">
+                    <i class="fas fa-wallet"></i>
+                    Connect Backpack Wallet
+                </button>
+                <div id="walletInfo" class="wallet-info hidden">
+                    <div class="wallet-connected">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Connected:</span>
+                        <span id="walletAddress" class="wallet-address"></span>
+                        <button id="disconnectWallet" class="disconnect-btn">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="search-section">
+            <div class="input-group">
+                <label for="voteAccount">Vote Account Public Key:</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-key"></i>
+                    <input 
+                        type="text" 
+                        id="voteAccount" 
+                        placeholder="Enter vote account public key..."
+                        class="vote-input"
+                    >
+                    <button id="useWalletAddress" class="use-wallet-btn hidden" title="Use connected wallet address">
+                        <i class="fas fa-wallet"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="rpcEndpoint">RPC Endpoint:</label>
+                <div class="select-wrapper">
+                    <i class="fas fa-server"></i>
+                    <select id="rpcEndpoint" class="rpc-select">
+                        <option value="https://rpc-testnet.x1.wiki">X1 Testnet (Default)</option>
+                    </select>
+                </div>
+            </div>
+
+            <button id="searchBtn" class="search-btn">
+                <i class="fas fa-search"></i>
+                Search Vote Account
+            </button>
+        </div>
+
+        <div id="loadingSpinner" class="loading hidden">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Loading vote account information...</span>
+        </div>
+
+        <div id="errorMessage" class="error-message hidden">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span id="errorText"></span>
+        </div>
+
+        <div id="resultsSection" class="results-section hidden">
+            <h2><i class="fas fa-info-circle"></i> Vote Account Information</h2>
+            
+            <div class="info-grid">
+                <div class="info-card">
+                    <div class="info-header">
+                        <i class="fas fa-user-shield"></i>
+                        <h3>Validator Identity</h3>
+                    </div>
+                    <div class="info-content">
+                        <span id="validatorIdentity" class="address">-</span>
+                        <button class="copy-btn" onclick="copyToClipboard('validatorIdentity')">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <div class="info-header">
+                        <i class="fas fa-hand-holding-usd"></i>
+                        <h3>Withdraw Authority</h3>
+                    </div>
+                    <div class="info-content">
+                        <span id="withdrawAuthority" class="address">-</span>
+                        <button class="copy-btn" onclick="copyToClipboard('withdrawAuthority')">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <div class="info-header">
+                        <i class="fas fa-coins"></i>
+                        <h3>Credits</h3>
+                    </div>
+                    <div class="info-content">
+                        <span id="credits" class="number">-</span>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <div class="info-header">
+                        <i class="fas fa-percentage"></i>
+                        <h3>Commission</h3>
+                    </div>
+                    <div class="info-content">
+                        <span id="commission" class="number">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>Built for X1 blockchain exploration | <i class="fas fa-heart"></i> Open Source</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
