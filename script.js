@@ -98,28 +98,49 @@ function checkBackpackWallet() {
 
     console.log('Checking for Backpack wallet...');
     
-    // Check for Backpack wallet
+    // check Backpack wallet
     if (window.backpack?.isBackpack) {
-        wallet = window.backpack.solana; // Use the Solana provider specifically
+        wallet = window.backpack.solana; // use Solana provider
         walletDetected = true;
         console.log('✅ Backpack wallet detected successfully');
+        
+        // add wallet event listener
+        if (wallet) {
+            wallet.on('connect', () => {
+                console.log('Wallet connected event fired');
+                if (wallet.publicKey) {
+                    walletConnected = true;
+                    connectedWalletAddress = wallet.publicKey.toString();
+                    updateWalletUI(connectedWalletAddress);
+                    console.log('✅ Wallet connected via event:', connectedWalletAddress);
+                }
+            });
+            
+            wallet.on('disconnect', () => {
+                console.log('Wallet disconnected event fired');
+                walletConnected = false;
+                connectedWalletAddress = null;
+                updateWalletUI(null);
+                removeWithdrawAuthorityMatch();
+            });
+        }
         
         connectWalletBtn.innerHTML = '<i class="fas fa-wallet"></i> Connect Backpack Wallet';
         connectWalletBtn.disabled = false;
         connectWalletBtn.onclick = connectWallet;
         
-        // Try auto-connect if previously connected
+        // try auto-connect
         tryAutoConnect();
     } else {
         console.log('❌ Backpack wallet not found');
         
-        // Only retry once after a longer delay
+        // only retry once, longer delay
         setTimeout(() => {
             if (!walletDetected && window.backpack?.isBackpack) {
                 console.log('Retrying Backpack detection...');
                 checkBackpackWallet();
             } else if (!walletDetected) {
-                // Final fallback
+                // final fallback
                 showWalletNotFound();
             }
         }, 2000);
@@ -170,6 +191,26 @@ async function connectWallet() {
         connectWalletBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connecting...';
         
         console.log('Connecting to Backpack wallet...');
+        
+        // check if wallet is already connected
+        if (wallet.connected) {
+            console.log('Wallet already connected, getting public key...');
+            const publicKey = wallet.publicKey;
+            if (publicKey) {
+                walletConnected = true;
+                connectedWalletAddress = publicKey.toString();
+                updateWalletUI(connectedWalletAddress);
+                console.log('✅ Backpack wallet already connected:', connectedWalletAddress);
+                
+                // Re-check current results if any
+                if (!resultsSection.classList.contains('hidden')) {
+                    checkWithdrawAuthorityMatch();
+                }
+                return;
+            }
+        }
+        
+        // try connect wallet
         const response = await wallet.connect();
         console.log('Connection response:', response);
         
@@ -189,8 +230,13 @@ async function connectWallet() {
     } catch (error) {
         console.error('❌ Failed to connect wallet:', error);
         
+        // more detailed error handling
         if (error.message.includes('User rejected') || error.message.includes('rejected')) {
             showError('Connection rejected by user');
+        } else if (error.message.includes('Plugin Closed')) {
+            showError('Wallet connection failed. Please try refreshing the page and ensure Backpack wallet is unlocked.');
+        } else if (error.message.includes('wallet not found')) {
+            showError('Backpack wallet not found. Please ensure the extension is installed and enabled.');
         } else {
             showError('Failed to connect to Backpack wallet: ' + error.message);
         }
