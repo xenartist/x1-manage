@@ -405,6 +405,84 @@ body {
     justify-content: space-between;
 }
 
+    position: fixed;
+    top: 20px;
+    left: 20px; 
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.rpc-section-top .rpc-select-wrapper {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    padding: 15px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    min-width: 250px;
+}
+
+.rpc-section-top label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+    font-size: 12px;
+}
+
+.rpc-section-top .select-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.rpc-section-top .select-wrapper i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #888;
+    z-index: 1;
+}
+
+.rpc-section-top .rpc-select {
+    width: 100%;
+    padding: 10px 10px 10px 35px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    background: white;
+    appearance: none;
+    cursor: pointer;
+}
+
+.rpc-section-top .rpc-select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Responsive design for RPC section */
+@media (max-width: 768px) {
+    .rpc-section-top {
+        top: 10px;
+        left: 20px;
+    }
+    
+    .rpc-section-top .rpc-select-wrapper {
+        min-width: 200px;
+        padding: 12px;
+    }
+    
+    .rpc-section-top .rpc-select {
+        font-size: 12px;
+        padding: 8px 8px 8px 30px;
+    }
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
     .container {

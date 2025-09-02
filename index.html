@@ -11,6 +11,19 @@
 </head>
 <body>
     <div class="container">
+        <!-- Top left RPC endpoint -->
+        <div class="rpc-section-top">
+            <div class="rpc-select-wrapper">
+                <label for="rpcEndpoint">RPC Endpoint:</label>
+                <div class="select-wrapper">
+                    <i class="fas fa-server"></i>
+                    <select id="rpcEndpoint" class="rpc-select">
+                        <option value="https://rpc-testnet.x1.wiki">X1 Testnet (Default)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
         <!-- Top right wallet connection -->
         <div class="wallet-section-top">
             <button id="connectWallet" class="wallet-btn">
@@ -48,16 +61,6 @@
                     <button id="useWalletAddress" class="use-wallet-btn hidden" title="Use connected wallet address">
                         <i class="fas fa-wallet"></i>
                     </button>
-                </div>
-            </div>
-
-            <div class="input-group">
-                <label for="rpcEndpoint">RPC Endpoint:</label>
-                <div class="select-wrapper">
-                    <i class="fas fa-server"></i>
-                    <select id="rpcEndpoint" class="rpc-select">
-                        <option value="https://rpc-testnet.x1.wiki">X1 Testnet (Default)</option>
-                    </select>
                 </div>
             </div>
 
