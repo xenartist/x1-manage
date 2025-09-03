@@ -27,7 +27,14 @@ const validatorIdentityEl = document.getElementById('validatorIdentity');
 const withdrawAuthorityEl = document.getElementById('withdrawAuthority');
 const creditsEl = document.getElementById('credits');
 const commissionEl = document.getElementById('commission');
-const accountBalanceEl = document.getElementById('accountBalance'); // Add balance element
+const accountBalanceEl = document.getElementById('accountBalance');
+
+// Withdraw modal elements
+const withdrawModal = document.getElementById('withdrawModal');
+const withdrawAmountInput = document.getElementById('withdrawAmount');
+const withdrawToInput = document.getElementById('withdrawTo');
+const availableBalanceEl = document.getElementById('availableBalance');
+const withdrawBtn = document.getElementById('withdrawBtn');
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
@@ -68,6 +75,9 @@ useWalletAddressBtn.addEventListener('click', useWalletAddress);
 function initializeApp() {
     currentRpcEndpoint = rpcEndpointSelect.value;
     initializeConnection();
+    
+    // Initialize withdraw button to disabled state
+    updateWithdrawButtonState(false);
     
     // Single wallet check with appropriate delay
     setTimeout(() => {
@@ -283,12 +293,20 @@ function updateWalletUI(address) {
         const shortAddress = `${address.slice(0, 4)}...${address.slice(-4)}`;
         walletAddress.textContent = shortAddress;
         walletAddress.title = address; // Full address on hover
+        
+        // Check withdraw authority if results are visible
+        if (!resultsSection.classList.contains('hidden')) {
+            checkWithdrawAuthorityMatch();
+        }
     } else {
         // Disconnected state
         connectWalletBtn.classList.remove('hidden');
         walletInfo.classList.add('hidden');
         useWalletAddressBtn.classList.add('hidden');
         walletAddress.textContent = '';
+        
+        // Disable withdraw button when wallet disconnected
+        updateWithdrawButtonState(false);
     }
 }
 
@@ -301,15 +319,34 @@ function useWalletAddress() {
 
 // Check if connected wallet address matches withdraw authority
 function checkWithdrawAuthorityMatch() {
-    if (!walletConnected || !connectedWalletAddress) return;
+    if (!walletConnected || !connectedWalletAddress) {
+        updateWithdrawButtonState(false);
+        return;
+    }
     
     const withdrawAuthority = withdrawAuthorityEl.textContent;
     if (withdrawAuthority && withdrawAuthority !== 'N/A' && withdrawAuthority !== '-') {
         if (withdrawAuthority === connectedWalletAddress) {
             showWithdrawAuthorityMatch(true);
+            updateWithdrawButtonState(true);
         } else {
             showWithdrawAuthorityMatch(false);
+            updateWithdrawButtonState(false);
         }
+    } else {
+        updateWithdrawButtonState(false);
+    }
+}
+
+// Update withdraw button state based on authority
+function updateWithdrawButtonState(hasAuthority) {
+    const withdrawBtn = document.getElementById('withdrawBtn');
+    if (hasAuthority) {
+        withdrawBtn.disabled = false;
+        withdrawBtn.classList.remove('disabled');
+    } else {
+        withdrawBtn.disabled = true;
+        withdrawBtn.classList.add('disabled');
     }
 }
 
@@ -359,6 +396,9 @@ function removeWithdrawAuthorityMatch() {
     }
     
     withdrawCard.classList.remove('authority-match', 'authority-no-match');
+    
+    // Disable withdraw button when removing authority match
+    updateWithdrawButtonState(false);
 }
 
 // Handle search button click
@@ -463,9 +503,16 @@ function displayResults(voteAccountInfo) {
     withdrawAuthorityEl.textContent = voteAccountInfo.withdrawAuthority;
     creditsEl.textContent = formatNumber(voteAccountInfo.credits);
     commissionEl.textContent = formatCommission(voteAccountInfo.commission);
-    accountBalanceEl.textContent = formatBalance(voteAccountInfo.accountBalance); // Add balance display
+    accountBalanceEl.textContent = formatBalance(voteAccountInfo.accountBalance);
     
     showResults();
+    
+    // Check withdraw authority after displaying results
+    if (walletConnected) {
+        setTimeout(() => checkWithdrawAuthorityMatch(), 50);
+    } else {
+        updateWithdrawButtonState(false);
+    }
 }
 
 // Format number with commas
@@ -510,6 +557,105 @@ function showResults() {
 
 function hideResults() {
     resultsSection.classList.add('hidden');
+    // Disable withdraw button when hiding results
+    updateWithdrawButtonState(false);
+}
+
+// Show withdraw modal
+function showWithdrawModal() {
+    // Check if user has withdraw authority
+    if (!walletConnected || !connectedWalletAddress) {
+        showError('Please connect your wallet first');
+        return;
+    }
+    
+    const withdrawAuthority = withdrawAuthorityEl.textContent;
+    if (withdrawAuthority !== connectedWalletAddress) {
+        showError('You do not have withdraw authority for this vote account');
+        return;
+    }
+    
+    // Get current balance
+    const balanceText = accountBalanceEl.textContent;
+    const currentBalance = parseFloat(balanceText.replace(' SOL', ''));
+    
+    if (isNaN(currentBalance) || currentBalance <= 0) {
+        showError('No balance available for withdrawal');
+        return;
+    }
+    
+    // Populate modal with connected wallet address as recipient
+    availableBalanceEl.textContent = currentBalance.toFixed(4);
+    withdrawToInput.value = connectedWalletAddress; // Use connected wallet address
+    withdrawAmountInput.value = '';
+    
+    // Show modal
+    withdrawModal.classList.remove('hidden');
+    
+    // Focus on amount input
+    setTimeout(() => {
+        withdrawAmountInput.focus();
+    }, 100);
+}
+
+// Hide withdraw modal
+function hideWithdrawModal() {
+    withdrawModal.classList.add('hidden');
+    withdrawAmountInput.value = '';
+}
+
+// Execute withdraw
+async function executeWithdraw() {
+    const amount = parseFloat(withdrawAmountInput.value);
+    const recipient = withdrawToInput.value.trim();
+
+    if (!amount || amount <= 0) {
+        showError('Please enter a valid amount');
+        return;
+    }
+
+    const availableBalance = parseFloat(availableBalanceEl.textContent);
+    if (amount > availableBalance) {
+        showError('Withdrawal amount exceeds available balance');
+        return;
+    }
+
+    if (!recipient) {
+        showError('Please enter recipient address');
+        return;
+    }
+
+    try {
+        // Convert SOL to lamports
+        const lamports = Math.floor(amount * solanaWeb3.LAMPORTS_PER_SOL);
+        
+        // Get current vote account public key
+        const voteAccountStr = document.getElementById('voteAccount').value.trim();
+        const voteAccountPubkey = new solanaWeb3.PublicKey(voteAccountStr);
+        const recipientPubkey = new solanaWeb3.PublicKey(recipient);
+
+        // Create withdraw transaction
+        const transaction = new solanaWeb3.Transaction().add(
+            solanaWeb3.VoteProgram.withdraw({
+                votePubkey: voteAccountPubkey,
+                authorizedPubkey: new solanaWeb3.PublicKey(withdrawAuthorityEl.textContent), // Use withdraw authority
+                lamports: lamports,
+                toPubkey: recipientPubkey,
+            })
+        );
+
+        // Sign and send transaction (this would need to be signed by the withdraw authority)
+        // Note: This is a simplified example - in practice, the withdraw authority would need to sign
+        console.log('Withdrawal transaction created:', transaction);
+        showError('Withdrawal transaction created. Note: This needs to be signed by the withdraw authority.');
+        
+        // Hide modal
+        hideWithdrawModal();
+
+    } catch (error) {
+        console.error('Withdrawal failed:', error);
+        showError('Withdrawal failed: ' + error.message);
+    }
 }
 
 console.log('X1 Vote Account Explorer with optimized Backpack detection loaded');
