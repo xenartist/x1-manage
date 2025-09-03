@@ -104,7 +104,7 @@ function initializeConnection() {
     }
 }
 
-// Check if Backpack wallet is available (only run once)
+// Improve wallet detection with longer timeout
 function checkBackpackWallet() {
     if (walletDetected) {
         console.log('Wallet already detected, skipping...');
@@ -144,21 +144,30 @@ function checkBackpackWallet() {
         connectWalletBtn.disabled = false;
         connectWalletBtn.onclick = connectWallet;
         
-        // try auto-connect
-        tryAutoConnect();
+        // try auto-connect with delay to allow wallet to fully load
+        setTimeout(() => {
+            tryAutoConnect();
+        }, 1000);
     } else {
         console.log('❌ Backpack wallet not found');
         
-        // only retry once, longer delay
-        setTimeout(() => {
-            if (!walletDetected && window.backpack?.isBackpack) {
-                console.log('Retrying Backpack detection...');
+        // Longer retry with multiple attempts
+        let detectRetries = 0;
+        const maxDetectRetries = 5;
+        const detectInterval = setInterval(() => {
+            detectRetries++;
+            console.log(`Retrying Backpack detection... attempt ${detectRetries}/${maxDetectRetries}`);
+            
+            if (window.backpack?.isBackpack) {
+                console.log('Backpack wallet found on retry!');
+                clearInterval(detectInterval);
                 checkBackpackWallet();
-            } else if (!walletDetected) {
-                // final fallback
+            } else if (detectRetries >= maxDetectRetries) {
+                console.log('Max detection retries reached');
+                clearInterval(detectInterval);
                 showWalletNotFound();
             }
-        }, 2000);
+        }, 2000); // Check every 2 seconds
     }
 }
 
@@ -174,13 +183,30 @@ function showWalletNotFound() {
     };
 }
 
-// Try to auto-connect if previously connected
+// Improve auto-connect with better error handling
 async function tryAutoConnect() {
     if (!wallet) return;
     
     try {
         console.log('Attempting auto-connect...');
-        const response = await wallet.connect({ onlyIfTrusted: true });
+        
+        // Check if wallet is ready
+        if (wallet.isConnected && wallet.publicKey) {
+            walletConnected = true;
+            connectedWalletAddress = wallet.publicKey.toString();
+            updateWalletUI(connectedWalletAddress);
+            console.log('✅ Wallet already connected:', connectedWalletAddress);
+            return;
+        }
+        
+        // Try trusted connection with timeout
+        const autoConnectPromise = wallet.connect({ onlyIfTrusted: true });
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Auto-connect timeout')), 8000)
+        );
+        
+        const response = await Promise.race([autoConnectPromise, timeoutPromise]);
+        
         if (response && response.publicKey) {
             walletConnected = true;
             connectedWalletAddress = response.publicKey.toString();
@@ -225,35 +251,87 @@ async function connectWallet() {
             }
         }
         
-        // try connect wallet
-        const response = await wallet.connect();
-        console.log('Connection response:', response);
+        // Enhanced connection with retry mechanism
+        let retryCount = 0;
+        const maxRetries = 3;
+        const retryDelay = 2000; // 2 seconds between retries
         
-        if (response && response.publicKey) {
-            walletConnected = true;
-            connectedWalletAddress = response.publicKey.toString();
-            updateWalletUI(connectedWalletAddress);
-            console.log('✅ Backpack wallet connected:', connectedWalletAddress);
-            
-            // Re-check current results if any
-            if (!resultsSection.classList.contains('hidden')) {
-                checkWithdrawAuthorityMatch();
+        while (retryCount < maxRetries) {
+            try {
+                // Update UI to show retry status
+                if (retryCount > 0) {
+                    connectWalletBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Retrying... (${retryCount}/${maxRetries})`;
+                    console.log(`Retry attempt ${retryCount}/${maxRetries}`);
+                }
+                
+                // Check if wallet is ready before connecting
+                if (!wallet.isConnected && wallet.publicKey) {
+                    console.log('Wallet appears to be in loading state, waiting...');
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+                
+                // try connect wallet with longer timeout
+                const connectPromise = wallet.connect();
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Connection timeout')), 15000) // 15 second timeout
+                );
+                
+                const response = await Promise.race([connectPromise, timeoutPromise]);
+                console.log('Connection response:', response);
+                
+                if (response && response.publicKey) {
+                    walletConnected = true;
+                    connectedWalletAddress = response.publicKey.toString();
+                    updateWalletUI(connectedWalletAddress);
+                    console.log('✅ Backpack wallet connected:', connectedWalletAddress);
+                    
+                    // Re-check current results if any
+                    if (!resultsSection.classList.contains('hidden')) {
+                        checkWithdrawAuthorityMatch();
+                    }
+                    return; // Success, exit retry loop
+                } else {
+                    throw new Error('No public key returned from wallet');
+                }
+                
+            } catch (retryError) {
+                retryCount++;
+                console.log(`Connection attempt ${retryCount} failed:`, retryError.message);
+                
+                // Handle specific errors that might indicate wallet is still loading
+                if (retryError.message.includes('Plugin Closed') || 
+                    retryError.message.includes('Connection timeout') ||
+                    retryError.message.includes('wallet not ready')) {
+                    
+                    if (retryCount < maxRetries) {
+                        console.log(`Wallet appears to be loading, waiting ${retryDelay}ms before retry...`);
+                        connectWalletBtn.innerHTML = `<i class="fas fa-clock"></i> Wallet loading, retrying in ${retryDelay/1000}s...`;
+                        await new Promise(resolve => setTimeout(resolve, retryDelay));
+                        continue; // Try again
+                    }
+                }
+                
+                // If this is the last retry or a non-recoverable error, throw it
+                if (retryCount >= maxRetries) {
+                    throw retryError;
+                }
             }
-        } else {
-            throw new Error('No public key returned from wallet');
         }
+        
     } catch (error) {
-        console.error('❌ Failed to connect wallet:', error);
+        console.error('❌ Failed to connect wallet after retries:', error);
         
         // more detailed error handling
         if (error.message.includes('User rejected') || error.message.includes('rejected')) {
             showError('Connection rejected by user');
         } else if (error.message.includes('Plugin Closed')) {
-            showError('Wallet connection failed. Please try refreshing the page and ensure Backpack wallet is unlocked.');
+            showError('Wallet plugin closed during connection. Please ensure Backpack wallet is fully loaded and try again.');
+        } else if (error.message.includes('Connection timeout')) {
+            showError('Connection timeout. Backpack wallet may be loading or busy. Please wait a moment and try again.');
         } else if (error.message.includes('wallet not found')) {
             showError('Backpack wallet not found. Please ensure the extension is installed and enabled.');
         } else {
-            showError('Failed to connect to Backpack wallet: ' + error.message);
+            showError('Failed to connect to Backpack wallet. Please ensure the wallet is unlocked and try refreshing the page.');
         }
     } finally {
         connectWalletBtn.disabled = false;
