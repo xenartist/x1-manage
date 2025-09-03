@@ -140,9 +140,43 @@ body {
     margin-right: 10px;
 }
 
+/* Success message */
+.success-message {
+    background: #e8f5e8;
+    color: #2e7d32;
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    border-left: 4px solid #4caf50;
+    border: 1px solid #4caf50;
+}
+
+.success-message i {
+    margin-right: 10px;
+    color: #4caf50;
+}
+
+.success-message a {
+    color: #2e7d32 !important;
+    text-decoration: underline;
+    font-weight: 500;
+}
+
+.success-message a:hover {
+    color: #1b5e20 !important;
+}
+
+/* keep existing error message style */
 .error-message {
     background: #ffebee;
     color: #c62828;
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
     border-left: 4px solid #c62828;
 }
 
@@ -884,4 +918,32 @@ body {
 
 .btn-confirm:hover {
     background: #218838;
+}
+
+/* Max amount button in withdraw modal */
+.max-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.max-btn:hover {
+    background: #5a67d8;
+}
+
+.form-group {
+    position: relative;
+}
+
+.form-group input {
+    padding-right: 50px; /* Make room for max button */
 }

@@ -1,6 +1,6 @@
 // Global variables
 let connection = null;
-let currentRpcEndpoint = 'https://rpc-testnet.x1.wiki';
+let currentRpcEndpoint = 'https://rpc.testnet.x1.xyz';
 let wallet = null;
 let walletConnected = false;
 let connectedWalletAddress = null;
@@ -35,6 +35,10 @@ const withdrawAmountInput = document.getElementById('withdrawAmount');
 const withdrawToInput = document.getElementById('withdrawTo');
 const availableBalanceEl = document.getElementById('availableBalance');
 const withdrawBtn = document.getElementById('withdrawBtn');
+
+// Success message elements
+const successMessage = document.getElementById('successMessage');
+const successText = document.getElementById('successText');
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
@@ -542,13 +546,49 @@ function hideLoading() {
     loadingSpinner.classList.add('hidden');
 }
 
+// show success message
+function showSuccess(message) {
+    successText.innerHTML = message;
+    successMessage.classList.remove('hidden');
+    // hide error message (if any)
+    hideError();
+}
+
+function hideSuccess() {
+    successMessage.classList.add('hidden');
+}
+
 function showError(message) {
-    errorText.textContent = message;
+    errorText.innerHTML = message;
     errorMessage.classList.remove('hidden');
+    // hide success message (if any)
+    hideSuccess();
 }
 
 function hideError() {
     errorMessage.classList.add('hidden');
+}
+
+// show error message with link
+function showErrorWithLink(message, linkUrl, linkText) {
+    const messageEl = document.createElement('span');
+    messageEl.textContent = message;
+    
+    if (linkUrl && linkText) {
+        const linkEl = document.createElement('a');
+        linkEl.href = linkUrl;
+        linkEl.target = '_blank';
+        linkEl.style.color = '#4CAF50';
+        linkEl.style.textDecoration = 'underline';
+        linkEl.textContent = linkText;
+        
+        messageEl.appendChild(document.createTextNode(' '));
+        messageEl.appendChild(linkEl);
+    }
+    
+    errorText.innerHTML = '';
+    errorText.appendChild(messageEl);
+    errorMessage.classList.remove('hidden');
 }
 
 function showResults() {
@@ -589,6 +629,9 @@ function showWithdrawModal() {
     withdrawToInput.value = connectedWalletAddress; // Use connected wallet address
     withdrawAmountInput.value = '';
     
+    // Add max button
+    addMaxAmountButton();
+    
     // Show modal
     withdrawModal.classList.remove('hidden');
     
@@ -596,6 +639,29 @@ function showWithdrawModal() {
     setTimeout(() => {
         withdrawAmountInput.focus();
     }, 100);
+}
+
+// Add helper function to add max amount button
+function addMaxAmountButton() {
+    const withdrawAmountInput = document.getElementById('withdrawAmount');
+    const formGroup = withdrawAmountInput.parentElement;
+    
+    // Check if max button already exists
+    if (formGroup.querySelector('.max-btn')) return;
+    
+    const maxBtn = document.createElement('button');
+    maxBtn.type = 'button';
+    maxBtn.className = 'max-btn';
+    maxBtn.textContent = 'Max';
+    maxBtn.onclick = () => {
+        const availableBalance = parseFloat(availableBalanceEl.textContent);
+        // Leave a small amount for transaction fees (0.001 SOL)
+        const maxWithdrawAmount = Math.max(0, availableBalance - 0.001);
+        withdrawAmountInput.value = maxWithdrawAmount.toFixed(6);
+    };
+    
+    formGroup.style.position = 'relative';
+    formGroup.appendChild(maxBtn);
 }
 
 // Hide withdraw modal
@@ -625,37 +691,300 @@ async function executeWithdraw() {
         return;
     }
 
+    if (!walletConnected || !wallet) {
+        showError('Wallet not connected');
+        return;
+    }
+
+    // Get button reference and store original text outside try block
+    const confirmBtn = document.querySelector('.btn-confirm');
+    const originalText = confirmBtn.textContent;
+
     try {
+        // Disable withdraw button during transaction
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+
         // Convert SOL to lamports
         const lamports = Math.floor(amount * solanaWeb3.LAMPORTS_PER_SOL);
         
         // Get current vote account public key
         const voteAccountStr = document.getElementById('voteAccount').value.trim();
-        const voteAccountPubkey = new solanaWeb3.PublicKey(voteAccountStr);
-        const recipientPubkey = new solanaWeb3.PublicKey(recipient);
-
-        // Create withdraw transaction
-        const transaction = new solanaWeb3.Transaction().add(
-            solanaWeb3.VoteProgram.withdraw({
-                votePubkey: voteAccountPubkey,
-                authorizedPubkey: new solanaWeb3.PublicKey(withdrawAuthorityEl.textContent), // Use withdraw authority
-                lamports: lamports,
-                toPubkey: recipientPubkey,
-            })
-        );
-
-        // Sign and send transaction (this would need to be signed by the withdraw authority)
-        // Note: This is a simplified example - in practice, the withdraw authority would need to sign
-        console.log('Withdrawal transaction created:', transaction);
-        showError('Withdrawal transaction created. Note: This needs to be signed by the withdraw authority.');
         
-        // Hide modal
-        hideWithdrawModal();
+        // Validate and create PublicKeys with error handling
+        let voteAccountPubkey, recipientPubkey, withdrawAuthorityPubkey;
+        
+        try {
+            voteAccountPubkey = new solanaWeb3.PublicKey(voteAccountStr);
+            recipientPubkey = new solanaWeb3.PublicKey(recipient);
+            withdrawAuthorityPubkey = new solanaWeb3.PublicKey(connectedWalletAddress);
+        } catch (keyError) {
+            throw new Error('Invalid public key format: ' + keyError.message);
+        }
+
+        console.log('Creating withdraw transaction:', {
+            voteAccount: voteAccountPubkey.toString(),
+            withdrawAuthority: withdrawAuthorityPubkey.toString(),
+            recipient: recipientPubkey.toString(),
+            amount: amount,
+            lamports: lamports
+        });
+
+        // Get latest blockhash with retry mechanism
+        let blockhash, lastValidBlockHeight;
+        let retries = 3;
+        
+        while (retries > 0) {
+            try {
+                const result = await connection.getLatestBlockhash('finalized');
+                blockhash = result.blockhash;
+                lastValidBlockHeight = result.lastValidBlockHeight;
+                break;
+            } catch (error) {
+                retries--;
+                if (retries === 0) throw error;
+                console.log(`Retrying to get blockhash... ${retries} attempts left`);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+        
+        console.log('Got fresh blockhash:', blockhash);
+        
+        // Create transaction with fresh blockhash
+        const transaction = new solanaWeb3.Transaction({
+            recentBlockhash: blockhash,
+            feePayer: withdrawAuthorityPubkey,
+        });
+
+        // Create withdraw instruction manually using the correct format
+        // Vote program ID on Solana
+        const VOTE_PROGRAM_ID = new solanaWeb3.PublicKey('Vote111111111111111111111111111111111111111');
+        
+        // Withdraw instruction data - using Uint8Array instead of Buffer
+        const instructionData = new Uint8Array(12);
+        
+        // Write instruction type (3 = withdraw) as 4-byte little endian
+        const instructionType = 3;
+        instructionData[0] = instructionType & 0xff;
+        instructionData[1] = (instructionType >> 8) & 0xff;
+        instructionData[2] = (instructionType >> 16) & 0xff;
+        instructionData[3] = (instructionType >> 24) & 0xff;
+        
+        // Write lamports as 8-byte little endian
+        const lamportsBigInt = BigInt(lamports);
+        for (let i = 0; i < 8; i++) {
+            instructionData[4 + i] = Number((lamportsBigInt >> BigInt(i * 8)) & BigInt(0xff));
+        }
+
+        const withdrawInstruction = new solanaWeb3.TransactionInstruction({
+            keys: [
+                { pubkey: voteAccountPubkey, isSigner: false, isWritable: true },
+                { pubkey: recipientPubkey, isSigner: false, isWritable: true },
+                { pubkey: withdrawAuthorityPubkey, isSigner: true, isWritable: false },
+            ],
+            programId: VOTE_PROGRAM_ID,
+            data: instructionData,
+        });
+
+        // Add instruction to transaction
+        transaction.add(withdrawInstruction);
+
+        console.log('Transaction created with fresh blockhash:', {
+            blockhash: blockhash,
+            feePayer: withdrawAuthorityPubkey.toString(),
+            instructions: transaction.instructions.length,
+            instructionProgramId: withdrawInstruction.programId.toString(),
+            instructionKeys: withdrawInstruction.keys.map(k => ({
+                pubkey: k.pubkey.toString(),
+                isSigner: k.isSigner,
+                isWritable: k.isWritable
+            })),
+            instructionDataLength: instructionData.length,
+            instructionDataArray: Array.from(instructionData)
+        });
+
+        let signature;
+        try {
+            // Sign and send transaction through Backpack wallet
+            const result = await wallet.signAndSendTransaction(transaction);
+            console.log('Wallet result:', result);
+            
+            // Handle different return formats
+            if (typeof result === 'string') {
+                signature = result;
+            } else if (result && result.signature) {
+                signature = result.signature;
+            } else if (result && result.publicKey) {
+                // Some wallets return transaction result object
+                signature = result.signature || result.txid || result.transactionId;
+            } else {
+                console.error('Unexpected wallet result format:', result);
+                throw new Error('Invalid signature format returned from wallet');
+            }
+            
+            console.log('Extracted signature:', signature);
+            
+            if (!signature || typeof signature !== 'string') {
+                throw new Error('No valid signature returned from wallet');
+            }
+        } catch (walletError) {
+            // Handle "Plugin Closed" error specifically
+            if (walletError.message && walletError.message.includes('Plugin Closed')) {
+                console.log('Plugin closed error detected, checking if transaction was sent...');
+                
+                // Wait a bit for potential transaction to be processed
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                // Try to check if balance changed instead of checking signatures
+                try {
+                    const currentBalance = await connection.getBalance(voteAccountPubkey);
+                    const currentBalanceInSol = currentBalance / solanaWeb3.LAMPORTS_PER_SOL;
+                    const originalBalance = parseFloat(availableBalanceEl.textContent);
+                    
+                    console.log('Balance check:', {
+                        original: originalBalance,
+                        current: currentBalanceInSol,
+                        difference: originalBalance - currentBalanceInSol
+                    });
+                    
+                    // If balance decreased by approximately the withdrawal amount, assume success
+                    const expectedDecrease = amount;
+                    const actualDecrease = originalBalance - currentBalanceInSol;
+                    
+                    if (Math.abs(actualDecrease - expectedDecrease) < 0.01) { // Allow 0.01 SOL tolerance for fees
+                        console.log('Balance decreased as expected, transaction likely successful');
+                        
+                        // Update the displayed balance
+                        accountBalanceEl.textContent = formatBalance(currentBalanceInSol);
+                        
+                        // Show success message without transaction link
+                        showSuccess('✅ Withdrawal appears successful! Your balance has been updated. Please check your wallet for confirmation.');
+                        
+                        // Hide modal
+                        hideWithdrawModal();
+                        return; // Exit successfully
+                    } else {
+                        console.log('Balance did not change as expected, transaction may have failed');
+                        throw new Error('Transaction may have failed - balance unchanged after wallet plugin closed');
+                    }
+                } catch (balanceCheckError) {
+                    console.error('Failed to check balance:', balanceCheckError);
+                    throw new Error('Wallet plugin closed during signing. Please check your wallet history and account balance manually.');
+                }
+            } else {
+                throw walletError; // Re-throw other wallet errors
+            }
+        }
+
+        if (signature) {
+            // Show processing message
+            hideError();
+            showError('Transaction sent! Waiting for confirmation...');
+            
+            try {
+                // Wait for confirmation with timeout
+                const confirmationPromise = connection.confirmTransaction(signature, 'confirmed');
+
+                // Add timeout to avoid waiting forever
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Transaction confirmation timeout')), 45000)
+                );
+
+                const confirmation = await Promise.race([confirmationPromise, timeoutPromise]);
+
+                if (confirmation.value && confirmation.value.err) {
+                    throw new Error('Transaction failed: ' + JSON.stringify(confirmation.value.err));
+                }
+
+                console.log('Transaction confirmed:', confirmation);
+
+                // Show success message with full X1 explorer URL
+                const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                showSuccess(`✅ Withdrawal successful! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+                
+                // Hide modal
+                hideWithdrawModal();
+
+                // Refresh account balance after successful withdrawal
+                setTimeout(async () => {
+                    try {
+                        const newBalance = await connection.getBalance(voteAccountPubkey);
+                        const newBalanceInSol = newBalance / solanaWeb3.LAMPORTS_PER_SOL;
+                        accountBalanceEl.textContent = formatBalance(newBalanceInSol);
+                        console.log('Balance refreshed:', newBalanceInSol);
+                    } catch (error) {
+                        console.error('Failed to refresh balance:', error);
+                    }
+                }, 3000);
+            } catch (confirmationError) {
+                if (confirmationError.message.includes('timeout')) {
+                    // Even if confirmation times out, the transaction might have succeeded
+                    // Refresh balance to check
+                    setTimeout(async () => {
+                        try {
+                            const newBalance = await connection.getBalance(voteAccountPubkey);
+                            const newBalanceInSol = newBalance / solanaWeb3.LAMPORTS_PER_SOL;
+                            accountBalanceEl.textContent = formatBalance(newBalanceInSol);
+                            console.log('Balance refreshed after timeout:', newBalanceInSol);
+                        } catch (error) {
+                            console.error('Failed to refresh balance after timeout:', error);
+                        }
+                    }, 5000);
+                    
+                    const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                    showWarning(`⚠️ Transaction confirmation timeout. Please check the transaction status: <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+                    hideWithdrawModal();
+                } else {
+                    throw confirmationError;
+                }
+            }
+        }
 
     } catch (error) {
         console.error('Withdrawal failed:', error);
-        showError('Withdrawal failed: ' + error.message);
+        
+        // Handle specific error types
+        let errorMessage = 'Withdrawal failed: ';
+        
+        if (error.message && error.message.includes('Plugin Closed')) {
+            errorMessage = 'Wallet plugin was closed during signing. Please check your wallet history and account balance to verify if the transaction was successful.';
+        } else if (error.message && error.message.includes('balance unchanged')) {
+            errorMessage = 'Transaction may have failed - your account balance appears unchanged. Please check your wallet for any error messages.';
+        } else if (error.message && error.message.includes('User rejected') || error.message && error.message.includes('rejected')) {
+            errorMessage = 'Transaction was rejected by user';
+        } else if (error.message && error.message.includes('insufficient funds') || error.message && error.message.includes('Insufficient')) {
+            errorMessage = 'Insufficient funds for transaction';
+        } else if (error.message && error.message.includes('blockhash not found')) {
+            errorMessage = 'Network error, please try again';
+        } else if (error.message && error.message.includes('Invalid public key')) {
+            errorMessage = 'Invalid address format';
+        } else if (error.message && error.message.includes('0x1')) {
+            errorMessage = 'Insufficient account balance for transaction fees';
+        } else if (error.message && error.message.includes('0x6')) {
+            errorMessage = 'Invalid withdraw authority';
+        } else {
+            errorMessage += error.message || 'Unknown error occurred';
+        }
+        
+        showError(errorMessage);
+    } finally {
+        // Re-enable withdraw button
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = originalText;
     }
+}
+
+// show error message with link
+function showWarning(message) {
+    // can reuse error style but use different color, or create new warning style
+    errorText.innerHTML = message;
+    errorMessage.classList.remove('hidden');
+    errorMessage.style.background = '#fff3e0';
+    errorMessage.style.color = '#ef6c00';
+    errorMessage.style.borderLeftColor = '#ff9800';
+    const icon = errorMessage.querySelector('i');
+    icon.className = 'fas fa-exclamation-circle';
+    icon.style.color = '#ff9800';
 }
 
 console.log('X1 Vote Account Explorer with optimized Backpack detection loaded');
