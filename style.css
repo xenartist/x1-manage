@@ -306,10 +306,22 @@ body {
 /* Footer */
 .footer {
     text-align: center;
-    color: white;
-    opacity: 0.8;
+    color: #666;  /* change to dark gray, visible on light background */
+    opacity: 0.9;
     margin-top: auto;
     padding: 20px 0;
+}
+
+.footer a {
+    color: #667eea;  /* use theme blue */
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.footer a:hover {
+    color: #5a67d8;  /* hover slightly deeper blue */
+    text-decoration: underline;
 }
 
 .footer i {
