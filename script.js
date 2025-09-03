@@ -27,6 +27,7 @@ const validatorIdentityEl = document.getElementById('validatorIdentity');
 const withdrawAuthorityEl = document.getElementById('withdrawAuthority');
 const creditsEl = document.getElementById('credits');
 const commissionEl = document.getElementById('commission');
+const accountBalanceEl = document.getElementById('accountBalance'); // Add balance element
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
@@ -426,12 +427,17 @@ async function getVoteAccountInfoWithWeb3(voteAccountPubkey) {
             foundAccount = voteAccounts.delinquent.find(acc => acc.votePubkey === voteAccountPubkey.toString());
         }
 
+        // Get account balance
+        const balance = await connection.getBalance(voteAccountPubkey);
+        const balanceInSol = balance / solanaWeb3.LAMPORTS_PER_SOL;
+
         // Extract vote account information
         const result = {
             validatorIdentity: voteData.node || foundAccount?.nodePubkey || 'N/A',
             withdrawAuthority: voteData.authorizedWithdrawer || 'N/A',
             credits: 'N/A',
-            commission: 'N/A'
+            commission: 'N/A',
+            accountBalance: balanceInSol
         };
 
         // Get credits from vote accounts list if available
@@ -457,6 +463,7 @@ function displayResults(voteAccountInfo) {
     withdrawAuthorityEl.textContent = voteAccountInfo.withdrawAuthority;
     creditsEl.textContent = formatNumber(voteAccountInfo.credits);
     commissionEl.textContent = formatCommission(voteAccountInfo.commission);
+    accountBalanceEl.textContent = formatBalance(voteAccountInfo.accountBalance); // Add balance display
     
     showResults();
 }
@@ -471,6 +478,12 @@ function formatNumber(num) {
 function formatCommission(commission) {
     if (commission === 'N/A' || commission === 'Unknown' || commission === null || commission === undefined) return 'N/A';
     return `${commission}%`;
+}
+
+// Format balance with SOL units
+function formatBalance(balance) {
+    if (balance === 'N/A' || balance === 'Unknown' || balance === null || balance === undefined) return 'N/A';
+    return `${balance.toFixed(4)} SOL`;
 }
 
 // UI helper functions

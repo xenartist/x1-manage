@@ -251,6 +251,18 @@ body {
     white-space: nowrap;
 }
 
+/* Add balance styling */
+.balance {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    color: #2ecc71;
+    font-size: 1rem;
+    background: rgba(46, 204, 113, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
 /* Remove copy button styles since they're gone */
 .copy-btn,
 .copy-btn:hover {
