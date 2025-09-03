@@ -883,28 +883,22 @@ async function executeWithdraw() {
 
         let signature;
         try {
-            // Sign and send transaction through Backpack wallet
-            const result = await wallet.signAndSendTransaction(transaction);
-            console.log('Wallet result:', result);
+            // separate signature and send steps, instead of using signAndSendTransaction
+            console.log('Requesting wallet signature...');
             
-            // Handle different return formats
-            if (typeof result === 'string') {
-                signature = result;
-            } else if (result && result.signature) {
-                signature = result.signature;
-            } else if (result && result.publicKey) {
-                // Some wallets return transaction result object
-                signature = result.signature || result.txid || result.transactionId;
-            } else {
-                console.error('Unexpected wallet result format:', result);
-                throw new Error('Invalid signature format returned from wallet');
-            }
+            // step 1: only sign transaction
+            const signedTransaction = await wallet.signTransaction(transaction);
+            console.log('Transaction signed successfully');
             
-            console.log('Extracted signature:', signature);
+            // step 2: manually send signed transaction
+            signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+                skipPreflight: false,
+                preflightCommitment: 'confirmed',
+                maxRetries: 3,
+            });
             
-            if (!signature || typeof signature !== 'string') {
-                throw new Error('No valid signature returned from wallet');
-            }
+            console.log('Transaction sent with signature:', signature);
+            
         } catch (walletError) {
             // Handle "Plugin Closed" error specifically
             if (walletError.message && walletError.message.includes('Plugin Closed')) {
