@@ -451,6 +451,10 @@ function showWithdrawAuthorityMatch(isMatch) {
             <div class="match-status match-success">
                 <i class="fas fa-check-circle"></i>
                 <span>You have withdraw authority</span>
+                <button class="update-authority-btn" onclick="showAccountSelector()">
+                    <i class="fas fa-edit"></i>
+                    Update
+                </button>
             </div>
         `;
         withdrawCard.classList.add('authority-match');
@@ -1057,6 +1061,304 @@ function showWarning(message) {
     const icon = errorMessage.querySelector('i');
     icon.className = 'fas fa-exclamation-circle';
     icon.style.color = '#ff9800';
+}
+
+// fix: get Backpack wallet accounts - use correct data structure
+async function getBackpackAccounts() {
+    if (!window.backpack?.solana || typeof window.backpack.solana._backpackGetAccounts !== 'function') {
+        throw new Error('Backpack wallet not available or method not supported');
+    }
+    
+    try {
+        const accountsData = await window.backpack.solana._backpackGetAccounts();
+        console.log('Retrieved Backpack accounts:', accountsData);
+        
+        const accounts = [];
+        
+        if (accountsData.users && Array.isArray(accountsData.users)) {
+            for (const user of accountsData.users) {
+                // use correct data structure path
+                if (user.publicKeys && 
+                    user.publicKeys.platforms && 
+                    user.publicKeys.platforms.solana && 
+                    user.publicKeys.platforms.solana.activePublicKey) {
+                    
+                    const publicKey = user.publicKeys.platforms.solana.activePublicKey;
+                    
+                    accounts.push({
+                        username: user.username || `Account ${accounts.length + 1}`,
+                        uuid: user.uuid,
+                        publicKey: publicKey,
+                        isActive: user.uuid === accountsData.activeUser
+                    });
+                    
+                    console.log('Added account:', {
+                        username: user.username,
+                        publicKey: publicKey,
+                        isActive: user.uuid === accountsData.activeUser
+                    });
+                }
+            }
+        }
+        
+        console.log('Final processed accounts:', accounts);
+        return accounts;
+    } catch (error) {
+        console.error('Failed to get Backpack accounts:', error);
+        throw error;
+    }
+}
+
+// add: show account selector modal
+function showAccountSelector() {
+    if (!walletConnected) {
+        showError('Please connect your wallet first');
+        return;
+    }
+    
+    getBackpackAccounts().then(accounts => {
+        createAccountSelectorModal(accounts);
+    }).catch(error => {
+        showError('Failed to retrieve wallet accounts: ' + error.message);
+    });
+}
+
+// modify: create account selector modal - current account does not show select button
+function createAccountSelectorModal(accounts) {
+    console.log('Creating modal with accounts:', accounts);
+    
+    // check account data
+    if (!accounts || accounts.length === 0) {
+        showError('No accounts found in Backpack wallet');
+        return;
+    }
+    
+    // check if modal exists, if exists, remove it
+    const existingModal = document.getElementById('accountSelectorModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const modal = document.createElement('div');
+    modal.id = 'accountSelectorModal';
+    modal.className = 'modal';
+    
+    // generate accounts list HTML - current account does not show select button
+    const accountsHTML = accounts.map(account => {
+        console.log('Generating HTML for account:', account);
+        
+        // check if show select button
+        const showSelectButton = !account.isActive;
+        
+        return `
+            <div class="account-item" data-public-key="${account.publicKey}">
+                <div class="account-info">
+                    <div class="account-name">
+                        ${account.username}
+                        ${account.isActive ? '<span class="active-badge">Current</span>' : ''}
+                    </div>
+                    <div class="account-address">${account.publicKey}</div>
+                </div>
+                ${showSelectButton ? 
+                    `<button class="select-account-btn" onclick="selectNewWithdrawAuthority('${account.publicKey}', '${account.username}')">
+                        Select
+                    </button>` : 
+                    `<span class="current-indicator">
+                        <i class="fas fa-check"></i>
+                        Current
+                    </span>`
+                }
+            </div>
+        `;
+    }).join('');
+    
+    console.log('Generated accounts HTML:', accountsHTML);
+    
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-users"></i> Select New Withdraw Authority</h3>
+                <button class="modal-close" onclick="hideAccountSelectorModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 16px; color: #666; font-size: 14px;">
+                    Choose which wallet address should become the new withdraw authority for this vote account:
+                </p>
+                <div class="account-list">
+                    ${accountsHTML}
+                </div>
+                <div class="modal-note">
+                    <i class="fas fa-info-circle"></i>
+                    <small>This will create a transaction to update the withdraw authority. You'll need to sign the transaction with the current withdraw authority.</small>
+                </div>
+                <div style="margin-top: 10px; padding: 8px; background: #f0f0f0; border-radius: 4px; font-family: monospace; font-size: 12px;">
+                    Debug: Found ${accounts.length} accounts
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="hideAccountSelectorModal()">Cancel</button>
+            </div>
+        </div>
+    `;
+    
+    console.log('Modal HTML:', modal.innerHTML);
+    
+    document.body.appendChild(modal);
+    modal.classList.remove('hidden');
+    
+    console.log('Modal added to DOM and shown');
+}
+
+// add: hide account selector modal
+function hideAccountSelectorModal() {
+    const modal = document.getElementById('accountSelectorModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        setTimeout(() => modal.remove(), 300);
+    }
+}
+
+// add: select new withdraw authority
+async function selectNewWithdrawAuthority(newAuthority, accountName) {
+    hideAccountSelectorModal();
+    
+    // confirm operation
+    if (!confirm(`Are you sure you want to update the withdraw authority to "${accountName}" (${newAuthority})?`)) {
+        return;
+    }
+    
+    try {
+        await executeWithdrawAuthorityUpdate(newAuthority);
+    } catch (error) {
+        showError('Failed to update withdraw authority: ' + error.message);
+    }
+}
+
+// add: execute withdraw authority update transaction
+async function executeWithdrawAuthorityUpdate(newAuthority) {
+    if (!walletConnected || !wallet) {
+        throw new Error('Wallet not connected');
+    }
+    
+    const currentAuthority = withdrawAuthorityEl.textContent;
+    if (currentAuthority !== connectedWalletAddress) {
+        throw new Error('You must be the current withdraw authority to update it');
+    }
+    
+    showError('Creating withdraw authority update transaction...');
+    
+    try {
+        // get current vote account
+        const voteAccountStr = document.getElementById('voteAccount').value.trim();
+        const voteAccountPubkey = new solanaWeb3.PublicKey(voteAccountStr);
+        const currentAuthorityPubkey = new solanaWeb3.PublicKey(currentAuthority);
+        const newAuthorityPubkey = new solanaWeb3.PublicKey(newAuthority);
+        
+        // get latest blockhash
+        const { blockhash } = await connection.getLatestBlockhash('finalized');
+        
+        // create transaction
+        const transaction = new solanaWeb3.Transaction({
+            recentBlockhash: blockhash,
+            feePayer: currentAuthorityPubkey,
+        });
+        
+        // Vote program ID
+        const VOTE_PROGRAM_ID = new solanaWeb3.PublicKey('Vote111111111111111111111111111111111111111');
+        
+        // create update withdraw authority instruction
+        // instruction type 4 = UpdateWithdrawAuthority
+        const instructionData = new Uint8Array(4);
+        const instructionType = 4; // UpdateWithdrawAuthority
+        instructionData[0] = instructionType & 0xff;
+        instructionData[1] = (instructionType >> 8) & 0xff;
+        instructionData[2] = (instructionType >> 16) & 0xff;
+        instructionData[3] = (instructionType >> 24) & 0xff;
+        
+        const updateInstruction = new solanaWeb3.TransactionInstruction({
+            keys: [
+                { pubkey: voteAccountPubkey, isSigner: false, isWritable: true },
+                { pubkey: newAuthorityPubkey, isSigner: false, isWritable: false },
+                { pubkey: currentAuthorityPubkey, isSigner: true, isWritable: false },
+            ],
+            programId: VOTE_PROGRAM_ID,
+            data: instructionData,
+        });
+        
+        transaction.add(updateInstruction);
+        
+        console.log('Update withdraw authority transaction created:', {
+            voteAccount: voteAccountPubkey.toString(),
+            currentAuthority: currentAuthorityPubkey.toString(),
+            newAuthority: newAuthorityPubkey.toString()
+        });
+        
+        // sign and send transaction
+        const signedTransaction = await wallet.signTransaction(transaction);
+        const signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+            skipPreflight: false,
+            preflightCommitment: 'confirmed'
+        });
+        
+        console.log('Transaction sent:', signature);
+        showError('Transaction sent! Waiting for confirmation...');
+        
+        // wait for confirmation
+        await connection.confirmTransaction(signature, 'confirmed');
+        
+        // update UI after successful withdrawal
+        withdrawAuthorityEl.textContent = newAuthority;
+        checkWithdrawAuthorityMatch();
+        
+        const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+        showSuccess(`✅ Withdraw authority updated successfully! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+        
+    } catch (error) {
+        console.error('Update withdraw authority failed:', error);
+        throw error;
+    }
+}
+
+// modify existing showWithdrawAuthorityMatch function, add Update button
+function showWithdrawAuthorityMatch(isMatch) {
+    const withdrawCard = withdrawAuthorityEl.closest('.info-card');
+    const existingIndicator = withdrawCard.querySelector('.authority-match-indicator');
+    
+    // Remove existing indicator
+    if (existingIndicator) {
+        existingIndicator.remove();
+    }
+    
+    // Add new indicator
+    const indicator = document.createElement('div');
+    indicator.className = 'authority-match-indicator';
+    
+    if (isMatch) {
+        indicator.innerHTML = `
+            <div class="match-status match-success">
+                <i class="fas fa-check-circle"></i>
+                <span>You have withdraw authority</span>
+                <button class="update-authority-btn" onclick="showAccountSelector()">
+                    <i class="fas fa-edit"></i>
+                    Update
+                </button>
+            </div>
+        `;
+        withdrawCard.classList.add('authority-match');
+    } else {
+        indicator.innerHTML = `
+            <div class="match-status match-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>You don't have withdraw authority</span>
+            </div>
+        `;
+        withdrawCard.classList.add('authority-no-match');
+    }
+    
+    const infoContent = withdrawCard.querySelector('.info-content');
+    infoContent.appendChild(indicator);
 }
 
 console.log('X1 Vote Account Explorer with optimized Backpack detection loaded');

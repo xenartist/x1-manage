@@ -959,3 +959,158 @@ body {
 .form-group input {
     padding-right: 50px; /* Make room for max button */
 }
+
+/* Account Selector Modal */
+.account-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    background: #f8f9fa;
+}
+
+.account-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e9ecef;
+    transition: background-color 0.2s;
+}
+
+.account-item:last-child {
+    border-bottom: none;
+}
+
+.account-item:hover {
+    background: white;
+}
+
+.account-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.account-name {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.active-badge {
+    background: #28a745;
+    color: white;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 12px;
+    font-weight: 500;
+}
+
+.account-address {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: #666;
+    word-break: break-all;
+}
+
+.select-account-btn {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    transition: background-color 0.2s;
+    flex-shrink: 0;
+}
+
+.select-account-btn:hover {
+    background: #5a67d8;
+}
+
+.modal-note {
+    margin-top: 16px;
+    padding: 12px;
+    background: #e3f2fd;
+    border-left: 4px solid #2196f3;
+    border-radius: 4px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.modal-note i {
+    color: #2196f3;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.modal-note small {
+    color: #1565c0;
+    line-height: 1.4;
+}
+
+/* Update Authority Button */
+.update-authority-btn {
+    background: #17a2b8;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: background-color 0.2s;
+}
+
+.update-authority-btn:hover {
+    background: #138496;
+}
+
+.update-authority-btn i {
+    margin: 0;
+}
+
+/* Match status layout adjustments */
+.match-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    justify-content: space-between;
+}
+
+.match-status span {
+    flex: 1;
+}
+
+/* Current indicator for already selected account */
+.current-indicator {
+    background: #e8f5e8;
+    color: #2e7d32;
+    border: 1px solid #4caf50;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.current-indicator i {
+    margin: 0;
+    color: #4caf50;
+}
