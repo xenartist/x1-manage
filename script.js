@@ -6,6 +6,10 @@ let walletConnected = false;
 let connectedWalletAddress = null;
 let walletDetected = false;
 
+// add: global variables for stake management
+let currentStakeAccounts = [];
+let activeTab = 'vote-info';
+
 // DOM elements
 const voteAccountInput = document.getElementById('voteAccount');
 const rpcEndpointSelect = document.getElementById('rpcEndpoint');
@@ -39,6 +43,12 @@ const withdrawBtn = document.getElementById('withdrawBtn');
 // Success message elements
 const successMessage = document.getElementById('successMessage');
 const successText = document.getElementById('successText');
+
+// add: DOM elements for new message types
+const infoMessage = document.getElementById('infoMessage');
+const infoText = document.getElementById('infoText');
+const warningMessage = document.getElementById('warningMessage');
+const warningText = document.getElementById('warningText');
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
@@ -146,7 +156,7 @@ function checkBackpackWallet() {
         
         // try auto-connect with delay to allow wallet to fully load
         setTimeout(() => {
-            tryAutoConnect();
+        tryAutoConnect();
         }, 1000);
     } else {
         console.log('❌ Backpack wallet not found');
@@ -277,22 +287,22 @@ async function connectWallet() {
                 );
                 
                 const response = await Promise.race([connectPromise, timeoutPromise]);
-                console.log('Connection response:', response);
-                
-                if (response && response.publicKey) {
-                    walletConnected = true;
-                    connectedWalletAddress = response.publicKey.toString();
-                    updateWalletUI(connectedWalletAddress);
-                    console.log('✅ Backpack wallet connected:', connectedWalletAddress);
-                    
-                    // Re-check current results if any
-                    if (!resultsSection.classList.contains('hidden')) {
-                        checkWithdrawAuthorityMatch();
-                    }
+        console.log('Connection response:', response);
+        
+        if (response && response.publicKey) {
+            walletConnected = true;
+            connectedWalletAddress = response.publicKey.toString();
+            updateWalletUI(connectedWalletAddress);
+            console.log('✅ Backpack wallet connected:', connectedWalletAddress);
+            
+            // Re-check current results if any
+            if (!resultsSection.classList.contains('hidden')) {
+                checkWithdrawAuthorityMatch();
+            }
                     return; // Success, exit retry loop
-                } else {
-                    throw new Error('No public key returned from wallet');
-                }
+        } else {
+            throw new Error('No public key returned from wallet');
+        }
                 
             } catch (retryError) {
                 retryCount++;
@@ -492,26 +502,49 @@ async function handleSearch() {
         return;
     }
 
-    showLoading();
+    // remove the showLoading() call here since we'll use showInfo instead
     hideError();
+    hideInfo();
+    hideWarning();
+    hideSuccess();
     hideResults();
     removeWithdrawAuthorityMatch();
 
     try {
-        // Validate and create PublicKey
+        // validate and create PublicKey
         const voteAccountPubkey = new solanaWeb3.PublicKey(voteAccountStr);
+        
+        // show info message for vote account loading (this replaces the spinner)
+        showInfo('Loading vote account information...', true);
         
         const voteAccountInfo = await getVoteAccountInfoWithWeb3(voteAccountPubkey);
         displayResults(voteAccountInfo);
         
-        // Check withdraw authority match after displaying results
+        // show info message for stake accounts loading
+        showInfo('Loading delegated stake accounts...', true);
+        const stakeAccounts = await getStakeAccountsForVoteAccount(voteAccountPubkey);
+        currentStakeAccounts = stakeAccounts;
+        
+        // create stake tabs
+        createStakeTabs(stakeAccounts);
+        
+        // check withdraw authority match after displaying results
         if (walletConnected) {
             setTimeout(() => checkWithdrawAuthorityMatch(), 100);
         }
         
-        hideLoading();
+        // no need for hideLoading() since we're not using showLoading()
+        hideInfo();
+        
+        // show completion message
+        if (stakeAccounts.length > 0) {
+            showInfo(`✅ Found ${stakeAccounts.length} delegated stake account(s)`);
+            setTimeout(() => hideInfo(), 3000); // auto hide after 3 seconds
+        }
+        
     } catch (error) {
-        hideLoading();
+        // no need for hideLoading() since we're not using showLoading()
+        hideInfo();
         if (error.message.includes('Invalid public key input')) {
             showError('Invalid public key format');
         } else {
@@ -701,7 +734,7 @@ function showWithdrawModal() {
         showError('No balance available for withdrawal');
         return;
     }
-    
+
     // Populate modal with connected wallet address as recipient
     availableBalanceEl.textContent = currentBalance.toFixed(4);
     withdrawToInput.value = connectedWalletAddress; // Use connected wallet address
@@ -973,9 +1006,9 @@ async function executeWithdraw() {
                 // Show success message with full X1 explorer URL
                 const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
                 showSuccess(`✅ Withdrawal successful! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
-                
-                // Hide modal
-                hideWithdrawModal();
+        
+        // Hide modal
+        hideWithdrawModal();
 
                 // Refresh account balance after successful withdrawal
                 setTimeout(async () => {
@@ -1057,6 +1090,131 @@ function showWarning(message) {
     const icon = errorMessage.querySelector('i');
     icon.className = 'fas fa-exclamation-circle';
     icon.style.color = '#ff9800';
+}
+
+// add: function to show info messages (for process states)
+function showInfo(message, loading = false) {
+    // hide other messages
+    hideError();
+    hideSuccess();
+    hideWarning();
+    
+    infoText.innerHTML = message;
+    infoMessage.classList.remove('hidden');
+    
+    // add loading animation if specified
+    if (loading) {
+        infoMessage.classList.add('loading');
+        const icon = infoMessage.querySelector('i');
+        icon.className = 'fas fa-spinner';
+    } else {
+        infoMessage.classList.remove('loading');
+        const icon = infoMessage.querySelector('i');
+        icon.className = 'fas fa-info-circle';
+    }
+}
+
+// add: function to hide info message
+function hideInfo() {
+    infoMessage.classList.add('hidden');
+    infoMessage.classList.remove('loading');
+}
+
+// modify: showWarning function to use new warning message style
+function showWarning(message) {
+    // hide other messages
+    hideError();
+    hideSuccess();
+    hideInfo();
+    
+    warningText.innerHTML = message;
+    warningMessage.classList.remove('hidden');
+}
+
+// add: function to hide warning message
+function hideWarning() {
+    warningMessage.classList.add('hidden');
+}
+
+// modify: showSuccess function to hide other messages
+function showSuccess(message) {
+    successText.innerHTML = message;
+    successMessage.classList.remove('hidden');
+    // hide other messages
+    hideError();
+    hideInfo();
+    hideWarning();
+}
+
+// modify: showError function to hide other messages
+function showError(message) {
+    errorText.innerHTML = message;
+    errorMessage.classList.remove('hidden');
+    // hide other messages
+    hideSuccess();
+    hideInfo();
+    hideWarning();
+}
+
+// modify: handleSearch function to use appropriate message types
+async function handleSearch() {
+    const voteAccountStr = voteAccountInput.value.trim();
+    
+    if (!voteAccountStr) {
+        showError('Please enter a vote account public key');
+        return;
+    }
+
+    // remove the showLoading() call here since we'll use showInfo instead
+    hideError();
+    hideInfo();
+    hideWarning();
+    hideSuccess();
+    hideResults();
+    removeWithdrawAuthorityMatch();
+
+    try {
+        // validate and create PublicKey
+        const voteAccountPubkey = new solanaWeb3.PublicKey(voteAccountStr);
+        
+        // show info message for vote account loading (this replaces the spinner)
+        showInfo('Loading vote account information...', true);
+        
+        const voteAccountInfo = await getVoteAccountInfoWithWeb3(voteAccountPubkey);
+        displayResults(voteAccountInfo);
+        
+        // show info message for stake accounts loading
+        showInfo('Loading delegated stake accounts...', true);
+        const stakeAccounts = await getStakeAccountsForVoteAccount(voteAccountPubkey);
+        currentStakeAccounts = stakeAccounts;
+        
+        // create stake tabs
+        createStakeTabs(stakeAccounts);
+        
+        // check withdraw authority match after displaying results
+        if (walletConnected) {
+            setTimeout(() => checkWithdrawAuthorityMatch(), 100);
+        }
+        
+        // no need for hideLoading() since we're not using showLoading()
+        hideInfo();
+        
+        // show completion message
+        if (stakeAccounts.length > 0) {
+            showInfo(`✅ Found ${stakeAccounts.length} delegated stake account(s)`);
+            setTimeout(() => hideInfo(), 3000); // auto hide after 3 seconds
+        }
+        
+    } catch (error) {
+        // no need for hideLoading() since we're not using showLoading()
+        hideInfo();
+        if (error.message.includes('Invalid public key input')) {
+            showError('Invalid public key format');
+        } else {
+            showError(`Error fetching vote account info: ${error.message}`);
+        }
+        console.error('Error:', error);
+    }
 }
 
 // fix: get Backpack wallet accounts - use correct data structure
@@ -1346,7 +1504,7 @@ async function executeWithdrawAuthorityUpdate(newAuthority) {
         throw new Error('You must be the current withdraw authority to update it');
     }
     
-    showError('Creating withdraw authority update transaction...');
+    showInfo('Creating withdraw authority update transaction...', true);
     
     try {
         // get current vote account
@@ -1389,7 +1547,7 @@ async function executeWithdrawAuthorityUpdate(newAuthority) {
         });
         
         console.log('Transaction sent:', signature);
-        showError('Transaction sent! Waiting for confirmation...');
+        showInfo('Transaction sent! Waiting for confirmation...', true);
         
         // wait for confirmation
         await connection.confirmTransaction(signature, 'confirmed');
@@ -1400,7 +1558,7 @@ async function executeWithdrawAuthorityUpdate(newAuthority) {
         const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
         
         // attempt to automatically switch to the new authority account
-        showError('Attempting to switch wallet to new authority address...');
+        showInfo('Attempting to switch wallet to new authority address...', true);
         
         const switchSuccessful = await switchToAccount(newAuthority);
         
@@ -1541,5 +1699,494 @@ function removeWithdrawAuthorityMatch() {
     // Disable withdraw button when removing authority match
     updateWithdrawButtonState(false);
 }
+
+// add: function to get all stake accounts delegated to a vote account
+async function getStakeAccountsForVoteAccount(voteAccountPubkey) {
+    try {
+        console.log('Searching for stake accounts delegated to:', voteAccountPubkey.toString());
+        
+        // get all stake program accounts
+        const stakeProgram = new solanaWeb3.PublicKey('Stake11111111111111111111111111111111111111');
+        
+        // filter for accounts delegated to our vote account
+        const accounts = await connection.getProgramAccounts(stakeProgram, {
+            filters: [
+                {
+                    memcmp: {
+                        offset: 124, // offset for vote account pubkey in stake account
+                        bytes: voteAccountPubkey.toBase58(),
+                    },
+                },
+            ],
+        });
+        
+        console.log('Found', accounts.length, 'stake accounts');
+        
+        const stakeAccounts = [];
+        for (const account of accounts) {
+            try {
+                // parse stake account data
+                const stakeAccount = await connection.getParsedAccountInfo(account.pubkey);
+                if (stakeAccount.value && stakeAccount.value.data.program === 'stake') {
+                    const stakeData = stakeAccount.value.data.parsed.info;
+                    
+                    // verify it's delegated to our vote account
+                    if (stakeData.stake && 
+                        stakeData.stake.delegation && 
+                        stakeData.stake.delegation.voter === voteAccountPubkey.toString()) {
+                        
+                        stakeAccounts.push({
+                            pubkey: account.pubkey.toString(),
+                            lamports: account.account.lamports,
+                            data: stakeData,
+                            accountInfo: stakeAccount.value
+                        });
+                    }
+                }
+            } catch (error) {
+                console.warn('Failed to parse stake account:', account.pubkey.toString(), error);
+            }
+        }
+        
+        console.log('Processed stake accounts:', stakeAccounts);
+        return stakeAccounts;
+        
+    } catch (error) {
+        console.error('Failed to get stake accounts:', error);
+        return [];
+    }
+}
+
+// fix: function to switch tabs - use data attributes instead of onclick
+function switchTab(tabId) {
+    console.log('Switching to tab:', tabId);
+    
+    // update tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // find the correct button using data attribute or by checking which button corresponds to this tab
+    const targetButton = document.querySelector(`[data-tab-id="${tabId}"]`) || 
+                        document.querySelector(`[onclick="switchTab('${tabId}')"]`);
+    
+    if (targetButton) {
+        targetButton.classList.add('active');
+    } else {
+        console.warn('Could not find tab button for:', tabId);
+    }
+    
+    // update tab content
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    const targetContent = document.getElementById(tabId);
+    if (targetContent) {
+        targetContent.classList.add('active');
+    } else {
+        console.warn('Could not find tab content for:', tabId);
+    }
+    
+    activeTab = tabId;
+    console.log('Switched to tab:', tabId);
+}
+
+// modify: createStakeTab function - add data-tab-id attribute
+function createStakeTab(stakeAccount, index) {
+    const stakePubkey = stakeAccount.pubkey;
+    const stakeData = stakeAccount.data;
+    const lamports = stakeAccount.lamports;
+    
+    // get actual stake amount (delegated amount) if available, otherwise use total balance
+    const delegatedStake = stakeData.stake?.delegation?.stake || lamports;
+    const solAmount = delegatedStake / solanaWeb3.LAMPORTS_PER_SOL;
+    
+    // format amount for display
+    const formatAmount = (amount) => {
+        if (amount >= 1000000) {
+            return (amount / 1000000).toFixed(1) + 'M';
+        } else if (amount >= 1000) {
+            return (amount / 1000).toFixed(1) + 'K';
+        } else {
+            return amount.toFixed(2);
+        }
+    };
+    
+    const tabId = `stake-${index}`;
+    
+    // create tab button with data attribute
+    const tabBtn = document.createElement('button');
+    tabBtn.className = 'tab-btn';
+    tabBtn.setAttribute('data-tab-id', tabId); // add data attribute for reliable selection
+    tabBtn.onclick = () => switchTab(tabId);
+    tabBtn.innerHTML = `
+        <i class="fas fa-layer-group"></i>
+        <span class="stake-rank">#${index + 1}</span>
+        <span class="stake-amount">${formatAmount(solAmount)} SOL</span>
+    `;
+    
+    // create tab content
+    const tabContent = document.createElement('div');
+    tabContent.id = tabId;
+    tabContent.className = 'tab-content';
+    
+    // calculate percentage of total stake (if we have multiple stakes)
+    const totalStake = currentStakeAccounts.reduce((sum, acc) => {
+        return sum + (acc.data.stake?.delegation?.stake || acc.lamports);
+    }, 0);
+    const percentage = totalStake > 0 ? ((delegatedStake / totalStake) * 100).toFixed(1) : '0.0';
+    
+    tabContent.innerHTML = `
+        <div class="stake-summary-card">
+            <div class="stake-summary-title">
+                <i class="fas fa-layer-group"></i>
+                Stake Account #${index + 1}
+                <span class="stake-rank-badge">Rank ${index + 1}</span>
+            </div>
+            <div class="stake-summary-content">
+                <div class="stake-summary-item">
+                    <div class="stake-summary-label">Address</div>
+                    <div class="stake-summary-value">${stakePubkey}</div>
+                </div>
+                <div class="stake-summary-item">
+                    <div class="stake-summary-label">Stake Amount</div>
+                    <div class="stake-summary-value">${solAmount.toFixed(6)} SOL</div>
+                </div>
+                <div class="stake-summary-item">
+                    <div class="stake-summary-label">Total Balance</div>
+                    <div class="stake-summary-value">${(lamports / solanaWeb3.LAMPORTS_PER_SOL).toFixed(6)} SOL</div>
+                </div>
+                <div class="stake-summary-item">
+                    <div class="stake-summary-label">Share of Total</div>
+                    <div class="stake-summary-value">${percentage}%</div>
+                </div>
+                <div class="stake-summary-item">
+                    <div class="stake-summary-label">Status</div>
+                    <div class="stake-summary-value">${stakeData.stake ? 'Active' : 'Inactive'}</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="stake-info-grid">
+            ${stakeData.stake ? `
+                <div class="info-card">
+                    <div class="info-header">
+                        <i class="fas fa-coins"></i>
+                        <h3>Delegation Info</h3>
+                    </div>
+                    <div class="info-content">
+                        <div class="stake-detail-item">
+                            <label>Delegated Stake:</label>
+                            <span>${(stakeData.stake.delegation.stake / solanaWeb3.LAMPORTS_PER_SOL).toFixed(6)} SOL</span>
+                        </div>
+                        <div class="stake-detail-item">
+                            <label>Activation Epoch:</label>
+                            <span>${stakeData.stake.delegation.activationEpoch}</span>
+                        </div>
+                        <div class="stake-detail-item">
+                            <label>Deactivation Epoch:</label>
+                            <span>${stakeData.stake.delegation.deactivationEpoch || 'N/A'}</span>
+                        </div>
+                        <div class="stake-detail-item">
+                            <label>Voter (Vote Account):</label>
+                            <span class="address">${stakeData.stake.delegation.voter}</span>
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
+            
+            ${stakeData.meta ? `
+                <div class="info-card">
+                    <div class="info-header">
+                        <i class="fas fa-user-shield"></i>
+                        <h3>Authorities</h3>
+                    </div>
+                    <div class="info-content">
+                        <div class="stake-detail-item">
+                            <label>Staker:</label>
+                            <span class="address">${stakeData.meta.authorized.staker}</span>
+                        </div>
+                        <div class="stake-detail-item">
+                            <label>Withdrawer:</label>
+                            <span class="address">${stakeData.meta.authorized.withdrawer}</span>
+                        </div>
+                        ${stakeData.meta.lockup ? `
+                            <div class="stake-detail-item">
+                                <label>Lockup:</label>
+                                <span>${stakeData.meta.lockup.epoch > 0 ? `Epoch ${stakeData.meta.lockup.epoch}` : 'None'}</span>
+                            </div>
+                        ` : ''}
+                        ${stakeData.meta.rentExemptReserve ? `
+                            <div class="stake-detail-item">
+                                <label>Rent Reserve:</label>
+                                <span>${(stakeData.meta.rentExemptReserve / solanaWeb3.LAMPORTS_PER_SOL).toFixed(6)} SOL</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            ` : ''}
+        </div>
+    `;
+    
+    return { tabBtn, tabContent };
+}
+
+// add: function to create all stake tabs with sorting by stake amount
+function createStakeTabs(stakeAccounts) {
+    const stakeTabsContainer = document.getElementById('stakeTabs');
+    const stakeTabsContent = document.getElementById('stakeTabsContent');
+    
+    // clear existing stake tabs
+    stakeTabsContainer.innerHTML = '';
+    stakeTabsContent.innerHTML = '';
+    
+    if (stakeAccounts.length === 0) {
+        console.log('No stake accounts found for this vote account');
+        return;
+    }
+    
+    // sort stake accounts by stake amount (descending order)
+    const sortedStakeAccounts = [...stakeAccounts].sort((a, b) => {
+        // get stake amount from delegation info or fallback to total lamports
+        const stakeAmountA = a.data.stake?.delegation?.stake || a.lamports;
+        const stakeAmountB = b.data.stake?.delegation?.stake || b.lamports;
+        
+        return stakeAmountB - stakeAmountA; // descending order (largest first)
+    });
+    
+    console.log('Sorted stake accounts by amount:', sortedStakeAccounts.map(stake => ({
+        address: stake.pubkey.slice(0, 8) + '...',
+        amount: (stake.data.stake?.delegation?.stake || stake.lamports) / solanaWeb3.LAMPORTS_PER_SOL
+    })));
+    
+    // create tabs for each stake account (now sorted)
+    sortedStakeAccounts.forEach((stakeAccount, index) => {
+        const { tabBtn, tabContent } = createStakeTab(stakeAccount, index);
+        stakeTabsContainer.appendChild(tabBtn);
+        stakeTabsContent.appendChild(tabContent);
+    });
+    
+    // update global reference to sorted accounts
+    currentStakeAccounts = sortedStakeAccounts;
+    
+    console.log(`Created ${sortedStakeAccounts.length} stake tabs (sorted by stake amount)`);
+}
+
+// modify: combine all dynamic CSS styles
+const allDynamicCSS = `
+.stake-detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.stake-detail-item:last-child {
+    border-bottom: none;
+}
+
+.stake-detail-item label {
+    font-weight: 600;
+    color: #555;
+    margin-right: 16px;
+    flex-shrink: 0;
+}
+
+.stake-detail-item span {
+    text-align: right;
+    word-break: break-all;
+    color: #333;
+}
+`;
+
+// add combined CSS to head (keep only one styleElement)
+const styleElement = document.createElement('style');
+styleElement.textContent = allDynamicCSS;
+document.head.appendChild(styleElement);
+
+// Add info message styles
+const infoMessageCSS = `
+/* Add info message for process states */
+.info-message {
+    background: #e3f2fd;
+    color: #1565c0;
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    border-left: 4px solid #2196f3;
+    border: 1px solid #2196f3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.info-message i {
+    color: #2196f3;
+    font-size: 16px;
+}
+
+.info-message.loading i {
+    animation: spin 1s linear infinite;
+}
+
+.info-message a {
+    color: #1565c0 !important;
+    text-decoration: underline;
+    font-weight: 500;
+}
+
+.info-message a:hover {
+    color: #0d47a1 !important;
+}
+
+/* Warning message (for non-critical warnings) */
+.warning-message {
+    background: #fff8e1;
+    color: #ef6c00;
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    border-left: 4px solid #ff9800;
+    border: 1px solid #ff9800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.warning-message i {
+    color: #ff9800;
+}
+
+.warning-message a {
+    color: #ef6c00 !important;
+    text-decoration: underline;
+    font-weight: 500;
+}
+
+.warning-message a:hover {
+    color: #e65100 !important;
+}
+`;
+
+// Add warning message styles
+const warningMessageCSS = `
+/* Warning message (for non-critical warnings) */
+.warning-message {
+    background: #fff8e1;
+    color: #ef6c00;
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    border-left: 4px solid #ff9800;
+    border: 1px solid #ff9800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.warning-message i {
+    color: #ff9800;
+}
+
+.warning-message a {
+    color: #ef6c00 !important;
+    text-decoration: underline;
+    font-weight: 500;
+}
+
+.warning-message a:hover {
+    color: #e65100 !important;
+}
+`;
+
+// Add info message styles to head
+const infoStyleElement = document.createElement('style');
+infoStyleElement.textContent = infoMessageCSS;
+document.head.appendChild(infoStyleElement);
+
+// Add warning message styles to head
+const warningStyleElement = document.createElement('style');
+warningStyleElement.textContent = warningMessageCSS;
+document.head.appendChild(warningStyleElement);
+
+// Add CSS for stake tab enhancements
+const stakeTabCSS = `
+/* Stake tab enhancements */
+.tab-btn .stake-rank {
+    background: rgba(102, 126, 234, 0.2);
+    color: #667eea;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-right: 4px;
+}
+
+.tab-btn .stake-amount {
+    font-weight: 600;
+    color: #2e7d32;
+}
+
+.tab-btn.active .stake-rank {
+    background: rgba(102, 126, 234, 0.3);
+    color: #5a67d8;
+}
+
+.tab-btn.active .stake-amount {
+    color: #1b5e20;
+}
+
+/* Stake rank badge in content */
+.stake-rank-badge {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 12px;
+    margin-left: auto;
+}
+
+/* Enhanced stake summary for ranking */
+.stake-summary-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+}
+
+.stake-summary-item:has(.stake-summary-label:contains("Share of Total")) {
+    background: rgba(255, 255, 255, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Responsive improvements for mobile */
+@media (max-width: 768px) {
+    .tab-btn {
+        flex-direction: column;
+        padding: 8px 12px;
+        min-width: 80px;
+    }
+    
+    .tab-btn .stake-rank {
+        margin-right: 0;
+        margin-bottom: 2px;
+    }
+    
+    .stake-summary-content {
+        grid-template-columns: 1fr;
+    }
+}
+`;
 
 console.log('X1 Vote Account Explorer with optimized Backpack detection loaded');

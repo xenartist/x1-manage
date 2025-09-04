@@ -80,7 +80,19 @@
             <span id="errorText"></span>
         </div>
 
-        <!-- add success message container -->
+        <!-- Add info message container -->
+        <div id="infoMessage" class="info-message hidden">
+            <i class="fas fa-info-circle"></i>
+            <span id="infoText"></span>
+        </div>
+
+        <!-- Add warning message container -->
+        <div id="warningMessage" class="warning-message hidden">
+            <i class="fas fa-exclamation-circle"></i>
+            <span id="warningText"></span>
+        </div>
+
+        <!-- Add success message container -->
         <div id="successMessage" class="success-message hidden">
             <i class="fas fa-check-circle"></i>
             <span id="successText"></span>
@@ -89,61 +101,81 @@
         <div id="resultsSection" class="results-section hidden">
             <h2><i class="fas fa-info-circle"></i> Vote Account Information</h2>
             
-            <div class="info-grid">
-                <!-- Account Balance card - moved to first position -->
-                <div class="info-card balance-card">
-                    <div class="info-header">
-                        <i class="fas fa-wallet"></i>
-                        <h3>Account Balance</h3>
-                    </div>
-                    <div class="info-content">
-                        <span id="accountBalance" class="balance">-</span>
-                        <button id="withdrawBtn" class="withdraw-btn" onclick="showWithdrawModal()" disabled>
-                            <i class="fas fa-arrow-right"></i>
-                            Withdraw
-                        </button>
-                    </div>
+            <!-- Add tab navigation -->
+            <div class="tab-navigation">
+                <button class="tab-btn active" onclick="switchTab('vote-info')">
+                    <i class="fas fa-vote-yea"></i>
+                    Vote Account
+                </button>
+                <div id="stakeTabs" class="stake-tabs">
+                    <!-- Stake tabs will be dynamically added here -->
                 </div>
+            </div>
+            
+            <!-- Tab contents -->
+            <div class="tab-contents">
+                <!-- Vote Account Info Tab -->
+                <div id="vote-info" class="tab-content active">
+                    <div class="info-grid">
+                        <!-- Account Balance card - moved to first position -->
+                        <div class="info-card balance-card">
+                            <div class="info-header">
+                                <i class="fas fa-wallet"></i>
+                                <h3>Account Balance</h3>
+                            </div>
+                            <div class="info-content">
+                                <span id="accountBalance" class="balance">-</span>
+                                <button id="withdrawBtn" class="withdraw-btn" onclick="showWithdrawModal()" disabled>
+                                    <i class="fas fa-arrow-right"></i>
+                                    Withdraw
+                                </button>
+                            </div>
+                        </div>
 
-                <div class="info-card">
-                    <div class="info-header">
-                        <i class="fas fa-user-shield"></i>
-                        <h3>Validator Identity</h3>
-                    </div>
-                    <div class="info-content">
-                        <span id="validatorIdentity" class="address">-</span>
-                    </div>
-                </div>
+                        <div class="info-card">
+                            <div class="info-header">
+                                <i class="fas fa-user-shield"></i>
+                                <h3>Validator Identity</h3>
+                            </div>
+                            <div class="info-content">
+                                <span id="validatorIdentity" class="address">-</span>
+                            </div>
+                        </div>
 
-                <div class="info-card">
-                    <div class="info-header">
-                        <i class="fas fa-hand-holding-usd"></i>
-                        <h3>Withdraw Authority</h3>
-                    </div>
-                    <div class="info-content">
-                        <span id="withdrawAuthority" class="address">-</span>
-                    </div>
-                </div>
+                        <div class="info-card">
+                            <div class="info-header">
+                                <i class="fas fa-hand-holding-usd"></i>
+                                <h3>Withdraw Authority</h3>
+                            </div>
+                            <div class="info-content">
+                                <span id="withdrawAuthority" class="address">-</span>
+                            </div>
+                        </div>
 
-                <div class="info-card">
-                    <div class="info-header">
-                        <i class="fas fa-coins"></i>
-                        <h3>Credits</h3>
-                    </div>
-                    <div class="info-content">
-                        <span id="credits" class="number">-</span>
-                    </div>
-                </div>
+                        <div class="info-card">
+                            <div class="info-header">
+                                <i class="fas fa-coins"></i>
+                                <h3>Credits</h3>
+                            </div>
+                            <div class="info-content">
+                                <span id="credits" class="number">-</span>
+                            </div>
+                        </div>
 
-                <div class="info-card">
-                    <div class="info-header">
-                        <i class="fas fa-percentage"></i>
-                        <h3>Commission</h3>
-                    </div>
-                    <div class="info-content">
-                        <span id="commission" class="number">-</span>
+                        <div class="info-card">
+                            <div class="info-header">
+                                <i class="fas fa-percentage"></i>
+                                <h3>Commission</h3>
+                            </div>
+                            <div class="info-content">
+                                <span id="commission" class="number">-</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
+                
+                <!-- Stake tabs content will be dynamically added here -->
+                <div id="stakeTabsContent"></div>
             </div>
         </div>
 
