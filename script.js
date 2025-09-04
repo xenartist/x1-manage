@@ -1792,15 +1792,16 @@ function switchTab(tabId) {
     console.log('Switched to tab:', tabId);
 }
 
-// modify: createStakeTab function - add data-tab-id attribute
+// modify: createStakeTab function - simplify to match vote account layout
 function createStakeTab(stakeAccount, index) {
     const stakePubkey = stakeAccount.pubkey;
     const stakeData = stakeAccount.data;
     const lamports = stakeAccount.lamports;
     
     // get actual stake amount (delegated amount) if available, otherwise use total balance
-    const delegatedStake = stakeData.stake?.delegation?.stake || lamports;
+    const delegatedStake = stakeData.stake?.delegation?.stake || 0;
     const solAmount = delegatedStake / solanaWeb3.LAMPORTS_PER_SOL;
+    const totalBalance = lamports / solanaWeb3.LAMPORTS_PER_SOL;
     
     // format amount for display
     const formatAmount = (amount) => {
@@ -1818,7 +1819,7 @@ function createStakeTab(stakeAccount, index) {
     // create tab button with data attribute
     const tabBtn = document.createElement('button');
     tabBtn.className = 'tab-btn';
-    tabBtn.setAttribute('data-tab-id', tabId); // add data attribute for reliable selection
+    tabBtn.setAttribute('data-tab-id', tabId);
     tabBtn.onclick = () => switchTab(tabId);
     tabBtn.innerHTML = `
         <i class="fas fa-layer-group"></i>
@@ -1826,16 +1827,18 @@ function createStakeTab(stakeAccount, index) {
         <span class="stake-amount">${formatAmount(solAmount)} SOL</span>
     `;
     
-    // create tab content
+    // create tab content using vote account layout style
     const tabContent = document.createElement('div');
     tabContent.id = tabId;
     tabContent.className = 'tab-content';
     
-    // calculate percentage of total stake (if we have multiple stakes)
-    const totalStake = currentStakeAccounts.reduce((sum, acc) => {
-        return sum + (acc.data.stake?.delegation?.stake || acc.lamports);
-    }, 0);
-    const percentage = totalStake > 0 ? ((delegatedStake / totalStake) * 100).toFixed(1) : '0.0';
+    // extract authorities
+    const stakeAuthority = stakeData.meta?.authorized?.staker || 'N/A';
+    const withdrawAuthority = stakeData.meta?.authorized?.withdrawer || 'N/A';
+    const delegatedVoteAccount = stakeData.stake?.delegation?.voter || 'N/A';
+    
+    // determine active stake (same as delegated stake for active stakes)
+    const activeStake = stakeData.stake ? delegatedStake : 0;
     
     tabContent.innerHTML = `
         <div class="stake-summary-card">
@@ -1844,88 +1847,74 @@ function createStakeTab(stakeAccount, index) {
                 Stake Account #${index + 1}
                 <span class="stake-rank-badge">Rank ${index + 1}</span>
             </div>
-            <div class="stake-summary-content">
-                <div class="stake-summary-item">
-                    <div class="stake-summary-label">Address</div>
-                    <div class="stake-summary-value">${stakePubkey}</div>
-                </div>
-                <div class="stake-summary-item">
-                    <div class="stake-summary-label">Stake Amount</div>
-                    <div class="stake-summary-value">${solAmount.toFixed(6)} SOL</div>
-                </div>
-                <div class="stake-summary-item">
-                    <div class="stake-summary-label">Total Balance</div>
-                    <div class="stake-summary-value">${(lamports / solanaWeb3.LAMPORTS_PER_SOL).toFixed(6)} SOL</div>
-                </div>
-                <div class="stake-summary-item">
-                    <div class="stake-summary-label">Share of Total</div>
-                    <div class="stake-summary-value">${percentage}%</div>
-                </div>
-                <div class="stake-summary-item">
-                    <div class="stake-summary-label">Status</div>
-                    <div class="stake-summary-value">${stakeData.stake ? 'Active' : 'Inactive'}</div>
-                </div>
-            </div>
         </div>
         
-        <div class="stake-info-grid">
-            ${stakeData.stake ? `
-                <div class="info-card">
-                    <div class="info-header">
-                        <i class="fas fa-coins"></i>
-                        <h3>Delegation Info</h3>
-                    </div>
-                    <div class="info-content">
-                        <div class="stake-detail-item">
-                            <label>Delegated Stake:</label>
-                            <span>${(stakeData.stake.delegation.stake / solanaWeb3.LAMPORTS_PER_SOL).toFixed(6)} SOL</span>
-                        </div>
-                        <div class="stake-detail-item">
-                            <label>Activation Epoch:</label>
-                            <span>${stakeData.stake.delegation.activationEpoch}</span>
-                        </div>
-                        <div class="stake-detail-item">
-                            <label>Deactivation Epoch:</label>
-                            <span>${stakeData.stake.delegation.deactivationEpoch || 'N/A'}</span>
-                        </div>
-                        <div class="stake-detail-item">
-                            <label>Voter (Vote Account):</label>
-                            <span class="address">${stakeData.stake.delegation.voter}</span>
-                        </div>
-                    </div>
+        <div class="info-grid">
+            <!-- Account Balance -->
+            <div class="info-card">
+                <div class="info-header">
+                    <i class="fas fa-wallet"></i>
+                    <h3>Account Balance</h3>
                 </div>
-            ` : ''}
-            
-            ${stakeData.meta ? `
-                <div class="info-card">
-                    <div class="info-header">
-                        <i class="fas fa-user-shield"></i>
-                        <h3>Authorities</h3>
-                    </div>
-                    <div class="info-content">
-                        <div class="stake-detail-item">
-                            <label>Staker:</label>
-                            <span class="address">${stakeData.meta.authorized.staker}</span>
-                        </div>
-                        <div class="stake-detail-item">
-                            <label>Withdrawer:</label>
-                            <span class="address">${stakeData.meta.authorized.withdrawer}</span>
-                        </div>
-                        ${stakeData.meta.lockup ? `
-                            <div class="stake-detail-item">
-                                <label>Lockup:</label>
-                                <span>${stakeData.meta.lockup.epoch > 0 ? `Epoch ${stakeData.meta.lockup.epoch}` : 'None'}</span>
-                            </div>
-                        ` : ''}
-                        ${stakeData.meta.rentExemptReserve ? `
-                            <div class="stake-detail-item">
-                                <label>Rent Reserve:</label>
-                                <span>${(stakeData.meta.rentExemptReserve / solanaWeb3.LAMPORTS_PER_SOL).toFixed(6)} SOL</span>
-                            </div>
-                        ` : ''}
-                    </div>
+                <div class="info-content">
+                    <span class="balance">${totalBalance.toFixed(6)} SOL</span>
                 </div>
-            ` : ''}
+            </div>
+
+            <!-- Delegated Stake -->
+            <div class="info-card">
+                <div class="info-header">
+                    <i class="fas fa-coins"></i>
+                    <h3>Delegated Stake</h3>
+                </div>
+                <div class="info-content">
+                    <span class="number">${solAmount.toFixed(6)} SOL</span>
+                </div>
+            </div>
+
+            <!-- Active Stake -->
+            <div class="info-card">
+                <div class="info-header">
+                    <i class="fas fa-check-circle"></i>
+                    <h3>Active Stake</h3>
+                </div>
+                <div class="info-content">
+                    <span class="number">${(activeStake / solanaWeb3.LAMPORTS_PER_SOL).toFixed(6)} SOL</span>
+                </div>
+            </div>
+
+            <!-- Delegated Vote Account -->
+            <div class="info-card">
+                <div class="info-header">
+                    <i class="fas fa-vote-yea"></i>
+                    <h3>Delegated Vote Account</h3>
+                </div>
+                <div class="info-content">
+                    <span class="address">${delegatedVoteAccount}</span>
+                </div>
+            </div>
+
+            <!-- Stake Authority -->
+            <div class="info-card stake-authority-card">
+                <div class="info-header">
+                    <i class="fas fa-user-cog"></i>
+                    <h3>Stake Authority</h3>
+                </div>
+                <div class="info-content">
+                    <span class="address stake-authority-address">${stakeAuthority}</span>
+                </div>
+            </div>
+
+            <!-- Withdraw Authority -->
+            <div class="info-card stake-withdraw-authority-card">
+                <div class="info-header">
+                    <i class="fas fa-hand-holding-usd"></i>
+                    <h3>Withdraw Authority</h3>
+                </div>
+                <div class="info-content">
+                    <span class="address stake-withdraw-authority-address">${withdrawAuthority}</span>
+                </div>
+            </div>
         </div>
     `;
     
@@ -1933,6 +1922,155 @@ function createStakeTab(stakeAccount, index) {
 }
 
 // add: function to create all stake tabs with sorting by stake amount
+function createStakeTabs(stakeAccounts) {
+    const stakeTabsContainer = document.getElementById('stakeTabs');
+    const stakeTabsContent = document.getElementById('stakeTabsContent');
+    
+    // clear existing stake tabs
+    stakeTabsContainer.innerHTML = '';
+    stakeTabsContent.innerHTML = '';
+    
+    if (stakeAccounts.length === 0) {
+        console.log('No stake accounts found for this vote account');
+        return;
+    }
+    
+    // sort stake accounts by stake amount (descending order)
+    const sortedStakeAccounts = [...stakeAccounts].sort((a, b) => {
+        // get stake amount from delegation info or fallback to total lamports
+        const stakeAmountA = a.data.stake?.delegation?.stake || a.lamports;
+        const stakeAmountB = b.data.stake?.delegation?.stake || b.lamports;
+        
+        return stakeAmountB - stakeAmountA; // descending order (largest first)
+    });
+    
+    console.log('Sorted stake accounts by amount:', sortedStakeAccounts.map(stake => ({
+        address: stake.pubkey.slice(0, 8) + '...',
+        amount: (stake.data.stake?.delegation?.stake || stake.lamports) / solanaWeb3.LAMPORTS_PER_SOL
+    })));
+    
+    // create tabs for each stake account (now sorted)
+    sortedStakeAccounts.forEach((stakeAccount, index) => {
+        const { tabBtn, tabContent } = createStakeTab(stakeAccount, index);
+        stakeTabsContainer.appendChild(tabBtn);
+        stakeTabsContent.appendChild(tabContent);
+    });
+    
+    // update global reference to sorted accounts
+    currentStakeAccounts = sortedStakeAccounts;
+    
+    console.log(`Created ${sortedStakeAccounts.length} stake tabs (sorted by stake amount)`);
+}
+
+// add: function to check stake authorities after displaying stake tab
+function checkStakeAuthorities(tabId) {
+    if (!walletConnected || !connectedWalletAddress) {
+        return;
+    }
+    
+    const tabContent = document.getElementById(tabId);
+    if (!tabContent) return;
+    
+    // check stake authority
+    const stakeAuthorityCard = tabContent.querySelector('.stake-authority-card');
+    const stakeAuthorityEl = tabContent.querySelector('.stake-authority-address');
+    
+    if (stakeAuthorityEl && stakeAuthorityCard) {
+        const stakeAuthority = stakeAuthorityEl.textContent;
+        checkAndShowStakeAuthorityMatch(stakeAuthorityCard, stakeAuthorityEl, stakeAuthority, 'stake');
+    }
+    
+    // check withdraw authority  
+    const withdrawAuthorityCard = tabContent.querySelector('.stake-withdraw-authority-card');
+    const withdrawAuthorityEl = tabContent.querySelector('.stake-withdraw-authority-address');
+    
+    if (withdrawAuthorityEl && withdrawAuthorityCard) {
+        const withdrawAuthority = withdrawAuthorityEl.textContent;
+        checkAndShowStakeAuthorityMatch(withdrawAuthorityCard, withdrawAuthorityEl, withdrawAuthority, 'withdraw');
+    }
+}
+
+// add: function to check and show authority match for stake accounts
+function checkAndShowStakeAuthorityMatch(card, addressEl, authority, type) {
+    // remove existing indicator
+    const existingIndicator = card.querySelector('.authority-match-indicator');
+    if (existingIndicator) {
+        existingIndicator.remove();
+    }
+    
+    // remove existing classes
+    card.classList.remove('authority-match', 'authority-no-match');
+    
+    if (authority && authority !== 'N/A' && authority !== '-') {
+        const indicator = document.createElement('div');
+        indicator.className = 'authority-match-indicator';
+        
+        if (authority === connectedWalletAddress) {
+            // user has authority
+            indicator.innerHTML = `
+                <div class="match-status match-success">
+                    <i class="fas fa-check-circle"></i>
+                    <span>You have ${type} authority</span>
+                </div>
+            `;
+            card.classList.add('authority-match');
+        } else {
+            // user doesn't have authority
+            indicator.innerHTML = `
+                <div class="match-status match-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>You don't have ${type} authority</span>
+                </div>
+            `;
+            card.classList.add('authority-no-match');
+        }
+        
+        const infoContent = card.querySelector('.info-content');
+        infoContent.appendChild(indicator);
+    }
+}
+
+// modify: switchTab function to check authorities when switching to stake tabs
+function switchTab(tabId) {
+    console.log('Switching to tab:', tabId);
+    
+    // update tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // find the correct button using data attribute or by checking which button corresponds to this tab
+    const targetButton = document.querySelector(`[data-tab-id="${tabId}"]`) || 
+                        document.querySelector(`[onclick="switchTab('${tabId}')"]`);
+    
+    if (targetButton) {
+        targetButton.classList.add('active');
+    } else {
+        console.warn('Could not find tab button for:', tabId);
+    }
+    
+    // update tab content
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    const targetContent = document.getElementById(tabId);
+    if (targetContent) {
+        targetContent.classList.add('active');
+        
+        // check authorities if this is a stake tab
+        if (tabId.startsWith('stake-')) {
+            setTimeout(() => checkStakeAuthorities(tabId), 100);
+        }
+    } else {
+        console.warn('Could not find tab content for:', tabId);
+    }
+    
+    activeTab = tabId;
+    console.log('Switched to tab:', tabId);
+}
+
+// modify: createStakeTabs function to check authorities for the first visible tab
 function createStakeTabs(stakeAccounts) {
     const stakeTabsContainer = document.getElementById('stakeTabs');
     const stakeTabsContent = document.getElementById('stakeTabsContent');
