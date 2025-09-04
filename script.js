@@ -1232,7 +1232,7 @@ async function selectNewWithdrawAuthority(newAuthority, accountName) {
     }
 }
 
-// add: execute withdraw authority update transaction
+// fix: execute withdraw authority update transaction - use correct authorization layout
 async function executeWithdrawAuthorityUpdate(newAuthority) {
     if (!walletConnected || !wallet) {
         throw new Error('Wallet not connected');
@@ -1261,34 +1261,22 @@ async function executeWithdrawAuthorityUpdate(newAuthority) {
             feePayer: currentAuthorityPubkey,
         });
         
-        // Vote program ID
-        const VOTE_PROGRAM_ID = new solanaWeb3.PublicKey('Vote111111111111111111111111111111111111111');
-        
-        // create update withdraw authority instruction
-        // instruction type 4 = UpdateWithdrawAuthority
-        const instructionData = new Uint8Array(4);
-        const instructionType = 4; // UpdateWithdrawAuthority
-        instructionData[0] = instructionType & 0xff;
-        instructionData[1] = (instructionType >> 8) & 0xff;
-        instructionData[2] = (instructionType >> 16) & 0xff;
-        instructionData[3] = (instructionType >> 24) & 0xff;
-        
-        const updateInstruction = new solanaWeb3.TransactionInstruction({
-            keys: [
-                { pubkey: voteAccountPubkey, isSigner: false, isWritable: true },
-                { pubkey: newAuthorityPubkey, isSigner: false, isWritable: false },
-                { pubkey: currentAuthorityPubkey, isSigner: true, isWritable: false },
-            ],
-            programId: VOTE_PROGRAM_ID,
-            data: instructionData,
+        // use the correct VoteAuthorizationLayout.Withdrawer
+        const authorizeInstruction = solanaWeb3.VoteProgram.authorize({
+            votePubkey: voteAccountPubkey,
+            authorizedPubkey: currentAuthorityPubkey,
+            newAuthorizedPubkey: newAuthorityPubkey,
+            voteAuthorizationType: solanaWeb3.VoteAuthorizationLayout.Withdrawer
         });
         
-        transaction.add(updateInstruction);
+        transaction.add(authorizeInstruction);
         
-        console.log('Update withdraw authority transaction created:', {
+        console.log('VoteProgram.authorize transaction created:', {
             voteAccount: voteAccountPubkey.toString(),
             currentAuthority: currentAuthorityPubkey.toString(),
-            newAuthority: newAuthorityPubkey.toString()
+            newAuthority: newAuthorityPubkey.toString(),
+            authorizationType: 'VoteAuthorizationLayout.Withdrawer',
+            instruction: authorizeInstruction
         });
         
         // sign and send transaction
@@ -1304,7 +1292,7 @@ async function executeWithdrawAuthorityUpdate(newAuthority) {
         // wait for confirmation
         await connection.confirmTransaction(signature, 'confirmed');
         
-        // update UI after successful withdrawal
+        // update UI after successful authority update
         withdrawAuthorityEl.textContent = newAuthority;
         checkWithdrawAuthorityMatch();
         
