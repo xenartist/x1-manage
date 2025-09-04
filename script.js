@@ -502,7 +502,6 @@ async function handleSearch() {
         return;
     }
 
-    // remove the showLoading() call here since we'll use showInfo instead
     hideError();
     hideInfo();
     hideWarning();
@@ -514,7 +513,7 @@ async function handleSearch() {
         // validate and create PublicKey
         const voteAccountPubkey = new solanaWeb3.PublicKey(voteAccountStr);
         
-        // show info message for vote account loading (this replaces the spinner)
+        // show info message for vote account loading
         showInfo('Loading vote account information...', true);
         
         const voteAccountInfo = await getVoteAccountInfoWithWeb3(voteAccountPubkey);
@@ -523,9 +522,16 @@ async function handleSearch() {
         // show info message for stake accounts loading
         showInfo('Loading delegated stake accounts...', true);
         const stakeAccounts = await getStakeAccountsForVoteAccount(voteAccountPubkey);
+        
+        console.log('=== Before createStakeTabs ===');
+        console.log('Wallet connected:', walletConnected);
+        console.log('Connected address:', connectedWalletAddress);
+        console.log('Raw stake accounts:', stakeAccounts.length);
+        
+        // IMPORTANT: Store the unsorted accounts first
         currentStakeAccounts = stakeAccounts;
         
-        // create stake tabs
+        // create stake tabs with proper wallet state
         createStakeTabs(stakeAccounts);
         
         // check withdraw authority match after displaying results
@@ -533,7 +539,6 @@ async function handleSearch() {
             setTimeout(() => checkWithdrawAuthorityMatch(), 100);
         }
         
-        // no need for hideLoading() since we're not using showLoading()
         hideInfo();
         
         // show completion message
@@ -543,7 +548,6 @@ async function handleSearch() {
         }
         
     } catch (error) {
-        // no need for hideLoading() since we're not using showLoading()
         hideInfo();
         if (error.message.includes('Invalid public key input')) {
             showError('Invalid public key format');
@@ -1165,7 +1169,6 @@ async function handleSearch() {
         return;
     }
 
-    // remove the showLoading() call here since we'll use showInfo instead
     hideError();
     hideInfo();
     hideWarning();
@@ -1177,7 +1180,7 @@ async function handleSearch() {
         // validate and create PublicKey
         const voteAccountPubkey = new solanaWeb3.PublicKey(voteAccountStr);
         
-        // show info message for vote account loading (this replaces the spinner)
+        // show info message for vote account loading
         showInfo('Loading vote account information...', true);
         
         const voteAccountInfo = await getVoteAccountInfoWithWeb3(voteAccountPubkey);
@@ -1186,9 +1189,16 @@ async function handleSearch() {
         // show info message for stake accounts loading
         showInfo('Loading delegated stake accounts...', true);
         const stakeAccounts = await getStakeAccountsForVoteAccount(voteAccountPubkey);
+        
+        console.log('=== Before createStakeTabs ===');
+        console.log('Wallet connected:', walletConnected);
+        console.log('Connected address:', connectedWalletAddress);
+        console.log('Raw stake accounts:', stakeAccounts.length);
+        
+        // IMPORTANT: Store the unsorted accounts first
         currentStakeAccounts = stakeAccounts;
         
-        // create stake tabs
+        // create stake tabs with proper wallet state
         createStakeTabs(stakeAccounts);
         
         // check withdraw authority match after displaying results
@@ -1196,7 +1206,6 @@ async function handleSearch() {
             setTimeout(() => checkWithdrawAuthorityMatch(), 100);
         }
         
-        // no need for hideLoading() since we're not using showLoading()
         hideInfo();
         
         // show completion message
@@ -1206,7 +1215,6 @@ async function handleSearch() {
         }
         
     } catch (error) {
-        // no need for hideLoading() since we're not using showLoading()
         hideInfo();
         if (error.message.includes('Invalid public key input')) {
             showError('Invalid public key format');
@@ -1792,7 +1800,7 @@ function switchTab(tabId) {
     console.log('Switched to tab:', tabId);
 }
 
-// modify: createStakeTab function - simplify to match vote account layout
+// modify: createStakeTab function - add authority indicators to tab title
 function createStakeTab(stakeAccount, index) {
     const stakePubkey = stakeAccount.pubkey;
     const stakeData = stakeAccount.data;
@@ -1802,6 +1810,13 @@ function createStakeTab(stakeAccount, index) {
     const delegatedStake = stakeData.stake?.delegation?.stake || 0;
     const solAmount = delegatedStake / solanaWeb3.LAMPORTS_PER_SOL;
     const totalBalance = lamports / solanaWeb3.LAMPORTS_PER_SOL;
+    
+    // check if user has authority
+    const stakeAuthority = stakeData.meta?.authorized?.staker || '';
+    const withdrawAuthority = stakeData.meta?.authorized?.withdrawer || '';
+    const hasStakeAuthority = walletConnected && connectedWalletAddress && stakeAuthority === connectedWalletAddress;
+    const hasWithdrawAuthority = walletConnected && connectedWalletAddress && withdrawAuthority === connectedWalletAddress;
+    const hasAnyAuthority = hasStakeAuthority || hasWithdrawAuthority;
     
     // format amount for display
     const formatAmount = (amount) => {
@@ -1816,15 +1831,24 @@ function createStakeTab(stakeAccount, index) {
     
     const tabId = `stake-${index}`;
     
-    // create tab button with data attribute
+    // create tab button with authority indicator
     const tabBtn = document.createElement('button');
     tabBtn.className = 'tab-btn';
     tabBtn.setAttribute('data-tab-id', tabId);
     tabBtn.onclick = () => switchTab(tabId);
+    
+    // add authority indicator to tab title
+    const authorityIndicator = hasAnyAuthority ? 
+        `<span class="authority-indicator">
+            ${hasStakeAuthority ? '<i class="fas fa-key" title="Stake Authority"></i>' : ''}
+            ${hasWithdrawAuthority ? '<i class="fas fa-hand-holding-usd" title="Withdraw Authority"></i>' : ''}
+        </span>` : '';
+    
     tabBtn.innerHTML = `
         <i class="fas fa-layer-group"></i>
         <span class="stake-rank">#${index + 1}</span>
         <span class="stake-amount">${formatAmount(solAmount)} SOL</span>
+        ${authorityIndicator}
     `;
     
     // create tab content using vote account layout style
@@ -1833,8 +1857,6 @@ function createStakeTab(stakeAccount, index) {
     tabContent.className = 'tab-content';
     
     // extract authorities
-    const stakeAuthority = stakeData.meta?.authorized?.staker || 'N/A';
-    const withdrawAuthority = stakeData.meta?.authorized?.withdrawer || 'N/A';
     const delegatedVoteAccount = stakeData.stake?.delegation?.voter || 'N/A';
     
     // determine active stake (same as delegated stake for active stakes)
@@ -1846,6 +1868,7 @@ function createStakeTab(stakeAccount, index) {
                 <i class="fas fa-layer-group"></i>
                 Stake Account #${index + 1}
                 <span class="stake-rank-badge">Rank ${index + 1}</span>
+                ${hasAnyAuthority ? '<span class="user-authority-badge">Your Account</span>' : ''}
             </div>
         </div>
         
@@ -1901,7 +1924,7 @@ function createStakeTab(stakeAccount, index) {
                     <h3>Stake Authority</h3>
                 </div>
                 <div class="info-content">
-                    <span class="address stake-authority-address">${stakeAuthority}</span>
+                    <span class="address stake-authority-address">${stakeAuthority || 'N/A'}</span>
                 </div>
             </div>
 
@@ -1912,7 +1935,7 @@ function createStakeTab(stakeAccount, index) {
                     <h3>Withdraw Authority</h3>
                 </div>
                 <div class="info-content">
-                    <span class="address stake-withdraw-authority-address">${withdrawAuthority}</span>
+                    <span class="address stake-withdraw-authority-address">${withdrawAuthority || 'N/A'}</span>
                 </div>
             </div>
         </div>
@@ -1921,8 +1944,15 @@ function createStakeTab(stakeAccount, index) {
     return { tabBtn, tabContent };
 }
 
-// add: function to create all stake tabs with sorting by stake amount
+// modify: createStakeTabs function - add more debugging
 function createStakeTabs(stakeAccounts) {
+    console.log('=== createStakeTabs called ===');
+    console.log('Accounts to sort:', stakeAccounts.length);
+    console.log('Wallet state:', {
+        connected: walletConnected,
+        address: connectedWalletAddress
+    });
+    
     const stakeTabsContainer = document.getElementById('stakeTabs');
     const stakeTabsContent = document.getElementById('stakeTabsContent');
     
@@ -1935,21 +1965,47 @@ function createStakeTabs(stakeAccounts) {
         return;
     }
     
-    // sort stake accounts by stake amount (descending order)
+    // enhanced sorting with debugging
     const sortedStakeAccounts = [...stakeAccounts].sort((a, b) => {
-        // get stake amount from delegation info or fallback to total lamports
+        const stakeAuthorityA = a.data.meta?.authorized?.staker || '';
+        const withdrawAuthorityA = a.data.meta?.authorized?.withdrawer || '';
+        const stakeAuthorityB = b.data.meta?.authorized?.staker || '';
+        const withdrawAuthorityB = b.data.meta?.authorized?.withdrawer || '';
+        
+        const hasAuthorityA = walletConnected && connectedWalletAddress && (
+            stakeAuthorityA === connectedWalletAddress || 
+            withdrawAuthorityA === connectedWalletAddress
+        );
+        const hasAuthorityB = walletConnected && connectedWalletAddress && (
+            stakeAuthorityB === connectedWalletAddress || 
+            withdrawAuthorityB === connectedWalletAddress
+        );
+        
+        // PRIORITY 1: Authority accounts ALWAYS come first
+        if (hasAuthorityA && !hasAuthorityB) return -1;
+        if (!hasAuthorityA && hasAuthorityB) return 1;
+        
+        // PRIORITY 2: sort by stake amount
         const stakeAmountA = a.data.stake?.delegation?.stake || a.lamports;
         const stakeAmountB = b.data.stake?.delegation?.stake || b.lamports;
-        
-        return stakeAmountB - stakeAmountA; // descending order (largest first)
+        return stakeAmountB - stakeAmountA;
     });
     
-    console.log('Sorted stake accounts by amount:', sortedStakeAccounts.map(stake => ({
-        address: stake.pubkey.slice(0, 8) + '...',
-        amount: (stake.data.stake?.delegation?.stake || stake.lamports) / solanaWeb3.LAMPORTS_PER_SOL
-    })));
+    // log the actual order that will be displayed
+    console.log('=== UI Display Order ===');
+    sortedStakeAccounts.forEach((stake, index) => {
+        const stakeAuthority = stake.data.meta?.authorized?.staker || '';
+        const withdrawAuthority = stake.data.meta?.authorized?.withdrawer || '';
+        const hasAuthority = walletConnected && connectedWalletAddress && (
+            stakeAuthority === connectedWalletAddress || 
+            withdrawAuthority === connectedWalletAddress
+        );
+        const amount = (stake.data.stake?.delegation?.stake || stake.lamports) / solanaWeb3.LAMPORTS_PER_SOL;
+        
+        console.log(`UI Tab ${index + 1}: ${stake.pubkey.slice(0,8)}... Authority: ${hasAuthority} Amount: ${amount.toFixed(2)} SOL`);
+    });
     
-    // create tabs for each stake account (now sorted)
+    // create tabs for each stake account in the sorted order
     sortedStakeAccounts.forEach((stakeAccount, index) => {
         const { tabBtn, tabContent } = createStakeTab(stakeAccount, index);
         stakeTabsContainer.appendChild(tabBtn);
@@ -1959,7 +2015,7 @@ function createStakeTabs(stakeAccounts) {
     // update global reference to sorted accounts
     currentStakeAccounts = sortedStakeAccounts;
     
-    console.log(`Created ${sortedStakeAccounts.length} stake tabs (sorted by stake amount)`);
+    console.log('=== createStakeTabs completed ===');
 }
 
 // add: function to check stake authorities after displaying stake tab
@@ -2068,47 +2124,6 @@ function switchTab(tabId) {
     
     activeTab = tabId;
     console.log('Switched to tab:', tabId);
-}
-
-// modify: createStakeTabs function to check authorities for the first visible tab
-function createStakeTabs(stakeAccounts) {
-    const stakeTabsContainer = document.getElementById('stakeTabs');
-    const stakeTabsContent = document.getElementById('stakeTabsContent');
-    
-    // clear existing stake tabs
-    stakeTabsContainer.innerHTML = '';
-    stakeTabsContent.innerHTML = '';
-    
-    if (stakeAccounts.length === 0) {
-        console.log('No stake accounts found for this vote account');
-        return;
-    }
-    
-    // sort stake accounts by stake amount (descending order)
-    const sortedStakeAccounts = [...stakeAccounts].sort((a, b) => {
-        // get stake amount from delegation info or fallback to total lamports
-        const stakeAmountA = a.data.stake?.delegation?.stake || a.lamports;
-        const stakeAmountB = b.data.stake?.delegation?.stake || b.lamports;
-        
-        return stakeAmountB - stakeAmountA; // descending order (largest first)
-    });
-    
-    console.log('Sorted stake accounts by amount:', sortedStakeAccounts.map(stake => ({
-        address: stake.pubkey.slice(0, 8) + '...',
-        amount: (stake.data.stake?.delegation?.stake || stake.lamports) / solanaWeb3.LAMPORTS_PER_SOL
-    })));
-    
-    // create tabs for each stake account (now sorted)
-    sortedStakeAccounts.forEach((stakeAccount, index) => {
-        const { tabBtn, tabContent } = createStakeTab(stakeAccount, index);
-        stakeTabsContainer.appendChild(tabBtn);
-        stakeTabsContent.appendChild(tabContent);
-    });
-    
-    // update global reference to sorted accounts
-    currentStakeAccounts = sortedStakeAccounts;
-    
-    console.log(`Created ${sortedStakeAccounts.length} stake tabs (sorted by stake amount)`);
 }
 
 // modify: combine all dynamic CSS styles

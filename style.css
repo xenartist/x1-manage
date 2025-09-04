@@ -1502,3 +1502,62 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* Authority indicators in tabs */
+.authority-indicator {
+    margin-left: 4px;
+    display: flex;
+    gap: 2px;
+}
+
+.authority-indicator i {
+    font-size: 10px;
+    color: #28a745;
+    background: rgba(40, 167, 69, 0.1);
+    padding: 2px 4px;
+    border-radius: 8px;
+}
+
+.tab-btn .authority-indicator i {
+    margin: 0;
+}
+
+.tab-btn.active .authority-indicator i {
+    background: rgba(40, 167, 69, 0.2);
+    color: #1e7e34;
+}
+
+/* User authority badge in stake summary */
+.user-authority-badge {
+    background: #28a745;
+    color: white;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 12px;
+    margin-left: auto;
+}
+
+/* Enhanced tab styles for authority accounts */
+.tab-btn:has(.authority-indicator) {
+    border: 1px solid rgba(40, 167, 69, 0.2);
+    background: rgba(40, 167, 69, 0.05);
+}
+
+.tab-btn:has(.authority-indicator).active {
+    border-color: #28a745;
+    background: rgba(40, 167, 69, 0.1);
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .authority-indicator {
+        flex-direction: column;
+        gap: 1px;
+    }
+    
+    .authority-indicator i {
+        font-size: 8px;
+        padding: 1px 3px;
+    }
+}
