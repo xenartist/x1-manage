@@ -451,10 +451,6 @@ function showWithdrawAuthorityMatch(isMatch) {
             <div class="match-status match-success">
                 <i class="fas fa-check-circle"></i>
                 <span>You have withdraw authority</span>
-                <button class="update-authority-btn" onclick="showAccountSelector()">
-                    <i class="fas fa-edit"></i>
-                    Update
-                </button>
             </div>
         `;
         withdrawCard.classList.add('authority-match');
@@ -1321,17 +1317,60 @@ async function executeWithdrawAuthorityUpdate(newAuthority) {
     }
 }
 
-// modify existing showWithdrawAuthorityMatch function, add Update button
+// improve: showWithdrawAuthorityMatch function - ensure correct container structure
 function showWithdrawAuthorityMatch(isMatch) {
     const withdrawCard = withdrawAuthorityEl.closest('.info-card');
     const existingIndicator = withdrawCard.querySelector('.authority-match-indicator');
+    const existingButton = withdrawCard.querySelector('.update-authority-btn');
     
-    // Remove existing indicator
+    // Remove existing indicator and button
     if (existingIndicator) {
         existingIndicator.remove();
     }
+    if (existingButton) {
+        existingButton.remove();
+    }
     
-    // Add new indicator
+    // Remove existing classes
+    withdrawCard.classList.remove('authority-match', 'authority-no-match');
+    
+    if (isMatch) {
+        // ensure address is wrapped in the appropriate container
+        let addressParent = withdrawAuthorityEl.parentElement;
+        
+        // if address is not in address-container, create one
+        if (!addressParent.classList.contains('address-container')) {
+            const addressContainer = document.createElement('div');
+            addressContainer.className = 'address-container';
+            
+            // move address element to new container
+            addressParent.insertBefore(addressContainer, withdrawAuthorityEl);
+            addressContainer.appendChild(withdrawAuthorityEl);
+            
+            addressParent = addressContainer;
+        }
+        
+        // create Update button
+        const updateButton = document.createElement('button');
+        updateButton.className = 'update-authority-btn';
+        updateButton.onclick = showAccountSelector;
+        updateButton.innerHTML = `
+            <i class="fas fa-edit"></i>
+            Update
+        `;
+        
+        // add button to address container
+        addressParent.appendChild(updateButton);
+        
+        // add style class
+        withdrawCard.classList.add('authority-match');
+        
+        console.log('Update button added to address container');
+    } else {
+        withdrawCard.classList.add('authority-no-match');
+    }
+    
+    // Add status indicator (show status below)
     const indicator = document.createElement('div');
     indicator.className = 'authority-match-indicator';
     
@@ -1340,13 +1379,8 @@ function showWithdrawAuthorityMatch(isMatch) {
             <div class="match-status match-success">
                 <i class="fas fa-check-circle"></i>
                 <span>You have withdraw authority</span>
-                <button class="update-authority-btn" onclick="showAccountSelector()">
-                    <i class="fas fa-edit"></i>
-                    Update
-                </button>
             </div>
         `;
-        withdrawCard.classList.add('authority-match');
     } else {
         indicator.innerHTML = `
             <div class="match-status match-warning">
@@ -1354,11 +1388,36 @@ function showWithdrawAuthorityMatch(isMatch) {
                 <span>You don't have withdraw authority</span>
             </div>
         `;
-        withdrawCard.classList.add('authority-no-match');
     }
     
     const infoContent = withdrawCard.querySelector('.info-content');
     infoContent.appendChild(indicator);
+}
+
+// simplify: removeWithdrawAuthorityMatch function
+function removeWithdrawAuthorityMatch() {
+    const withdrawCard = withdrawAuthorityEl.closest('.info-card');
+    const indicator = withdrawCard.querySelector('.authority-match-indicator');
+    const updateButton = withdrawCard.querySelector('.update-authority-btn');
+    
+    if (indicator) {
+        indicator.remove();
+    }
+    
+    if (updateButton) {
+        updateButton.remove();
+    }
+    
+    // remove container's special style
+    const addressParent = withdrawAuthorityEl.parentElement;
+    if (addressParent) {
+        addressParent.classList.remove('address-container');
+    }
+    
+    withdrawCard.classList.remove('authority-match', 'authority-no-match');
+    
+    // Disable withdraw button when removing authority match
+    updateWithdrawButtonState(false);
 }
 
 console.log('X1 Vote Account Explorer with optimized Backpack detection loaded');

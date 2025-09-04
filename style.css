@@ -1114,3 +1114,113 @@ body {
     margin: 0;
     color: #4caf50;
 }
+
+/* Address with button container */
+.address-with-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.address-with-button .address {
+    flex: 1;
+    margin: 0;
+}
+
+/* Update Authority Button - 放在地址右边 */
+.update-authority-btn {
+    background: #17a2b8;
+    color: white;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: background-color 0.2s;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.update-authority-btn:hover {
+    background: #138496;
+}
+
+.update-authority-btn i {
+    margin: 0;
+}
+
+/* Match status layout adjustments */
+.match-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.match-status span {
+    flex: 1;
+}
+
+/* Address container */
+.address-container {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.address-container .address {
+    flex: 1;
+    margin: 0;
+}
+
+/* Special layout for withdraw authority card when it has update button */
+.authority-match .info-content > .address-container {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+}
+
+.authority-match .info-content > .address-container .address {
+    flex: 1 !important;
+    margin: 0 !important;
+    width: auto !important;
+}
+
+/* Update Authority Button*/
+.update-authority-btn {
+    background: #17a2b8 !important;
+    color: white !important;
+    border: none !important;
+    padding: 6px 12px !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    font-size: 12px !important; 
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    transition: all 0.2s ease !important; 
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    width: 100px !important;
+    text-align: center !important; 
+    justify-content: center !important; 
+}
+
+.update-authority-btn:hover {
+    background: #138496 !important;
+    transform: translateY(-1px) !important;
+}
+
+.update-authority-btn i {
+    margin: 0 !important;
+}
