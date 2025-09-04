@@ -1232,7 +1232,110 @@ async function selectNewWithdrawAuthority(newAuthority, accountName) {
     }
 }
 
-// fix: execute withdraw authority update transaction - use correct authorization layout
+// add: function to switch active account in Backpack wallet
+async function switchToAccount(targetAddress) {
+    if (!window.backpack?.solana) {
+        throw new Error('Backpack wallet not available');
+    }
+    
+    try {
+        console.log('Attempting to switch to account:', targetAddress);
+        
+        // get all accounts to find the target UUID
+        const accountsData = await window.backpack.solana._backpackGetAccounts();
+        let targetAccountUuid = null;
+        
+        // find the UUID for the target address
+        for (const user of accountsData.users) {
+            if (user.publicKeys && 
+                user.publicKeys.platforms && 
+                user.publicKeys.platforms.solana && 
+                user.publicKeys.platforms.solana.activePublicKey === targetAddress) {
+                targetAccountUuid = user.uuid;
+                break;
+            }
+        }
+        
+        if (!targetAccountUuid) {
+            throw new Error('Target account not found in wallet');
+        }
+        
+        console.log('Found target account UUID:', targetAccountUuid);
+        
+        // attempt to switch account using internal API
+        if (typeof window.backpack.solana._setActiveUser === 'function') {
+            await window.backpack.solana._setActiveUser(targetAccountUuid);
+            console.log('Account switched successfully via _setActiveUser');
+            return true;
+        } else if (typeof window.backpack.solana.switchAccount === 'function') {
+            await window.backpack.solana.switchAccount(targetAccountUuid);
+            console.log('Account switched successfully via switchAccount');
+            return true;
+        } else {
+            console.log('No account switching API found, trying disconnect/reconnect approach');
+            
+            // fallback: force reconnection which might prompt user to select account
+            await wallet.disconnect();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // this might open account selection in Backpack
+            await wallet.connect();
+            return false; // manual selection required
+        }
+        
+    } catch (error) {
+        console.error('Failed to switch account:', error);
+        return false;
+    }
+}
+
+// add: function to update wallet connection after account switch
+async function updateWalletConnectionAfterSwitch(newAddress) {
+    try {
+        // wait a moment for wallet to update
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // check if wallet connection reflects the new address
+        if (wallet && wallet.publicKey) {
+            const currentAddress = wallet.publicKey.toString();
+            if (currentAddress === newAddress) {
+                // update our internal state
+                walletConnected = true;
+                connectedWalletAddress = newAddress;
+                updateWalletUI(newAddress);
+                
+                // recheck withdraw authority match
+                checkWithdrawAuthorityMatch();
+                
+                console.log('Wallet connection updated to new address:', newAddress);
+                return true;
+            }
+        }
+        
+        // if automatic detection failed, try to trigger wallet connection events
+        try {
+            await wallet.connect();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            if (wallet.publicKey && wallet.publicKey.toString() === newAddress) {
+                walletConnected = true;
+                connectedWalletAddress = newAddress;
+                updateWalletUI(newAddress);
+                checkWithdrawAuthorityMatch();
+                return true;
+            }
+        } catch (reconnectError) {
+            console.log('Reconnect attempt failed:', reconnectError);
+        }
+        
+        return false;
+    } catch (error) {
+        console.error('Failed to update wallet connection:', error);
+        return false;
+    }
+}
+
+// modify: execute withdraw authority update transaction - add auto account switch
 async function executeWithdrawAuthorityUpdate(newAuthority) {
     if (!walletConnected || !wallet) {
         throw new Error('Wallet not connected');
@@ -1275,8 +1378,7 @@ async function executeWithdrawAuthorityUpdate(newAuthority) {
             voteAccount: voteAccountPubkey.toString(),
             currentAuthority: currentAuthorityPubkey.toString(),
             newAuthority: newAuthorityPubkey.toString(),
-            authorizationType: 'VoteAuthorizationLayout.Withdrawer',
-            instruction: authorizeInstruction
+            authorizationType: 'VoteAuthorizationLayout.Withdrawer'
         });
         
         // sign and send transaction
@@ -1292,12 +1394,44 @@ async function executeWithdrawAuthorityUpdate(newAuthority) {
         // wait for confirmation
         await connection.confirmTransaction(signature, 'confirmed');
         
-        // update UI after successful authority update
+        // update UI withdraw authority display
         withdrawAuthorityEl.textContent = newAuthority;
-        checkWithdrawAuthorityMatch();
         
         const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
-        showSuccess(`✅ Withdraw authority updated successfully! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+        
+        // attempt to automatically switch to the new authority account
+        showError('Attempting to switch wallet to new authority address...');
+        
+        const switchSuccessful = await switchToAccount(newAuthority);
+        
+        if (switchSuccessful) {
+            // wait for wallet to update and then update our connection
+            const connectionUpdated = await updateWalletConnectionAfterSwitch(newAuthority);
+            
+            if (connectionUpdated) {
+                showSuccess(`✅ Withdraw authority updated and wallet switched to new address! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+            } else {
+                showWarning(`✅ Withdraw authority updated but wallet switch needs verification. Please check if you're now connected to ${newAuthority.slice(0,8)}... <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+                // manually trigger authority check after delay
+                setTimeout(() => {
+                    checkWithdrawAuthorityMatch();
+                }, 3000);
+            }
+        } else {
+            // fallback: show manual instruction
+            showWarning(`✅ Withdraw authority updated successfully! Please manually switch to the new address (${newAuthority.slice(0,8)}...) in your Backpack wallet to continue managing this vote account. <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+            // still check authority match periodically in case user manually switches
+            const checkInterval = setInterval(() => {
+                if (connectedWalletAddress === newAuthority) {
+                    clearInterval(checkInterval);
+                    checkWithdrawAuthorityMatch();
+                    showSuccess(`✅ Wallet switched successfully! You now have withdraw authority. <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+                }
+            }, 2000);
+            
+            // stop checking after 30 seconds
+            setTimeout(() => clearInterval(checkInterval), 30000);
+        }
         
     } catch (error) {
         console.error('Update withdraw authority failed:', error);
