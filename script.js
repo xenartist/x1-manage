@@ -1977,6 +1977,17 @@ function createStakeTab(stakeAccount, index) {
         </div>
         
         <div class="info-grid">
+            <!-- Stake Account Address -->
+            <div class="info-card">
+                <div class="info-header">
+                    <i class="fas fa-address-card"></i>
+                    <h3>Stake Account Address</h3>
+                </div>
+                <div class="info-content">
+                    <span class="address">${stakePubkey}</span>
+                </div>
+            </div>
+
             <!-- Account Balance -->
             <div class="info-card">
                 <div class="info-header">
