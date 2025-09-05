@@ -1391,10 +1391,8 @@ function hideAccountSelectorModal() {
 async function selectNewWithdrawAuthority(newAuthority, accountName) {
     hideAccountSelectorModal();
     
-    // confirm operation
-    if (!confirm(`Are you sure you want to update the withdraw authority to "${accountName}" (${newAuthority})?`)) {
-        return;
-    }
+    // Note: confirmation is handled by the calling function
+    // (processManualAddressInput or account selector click)
     
     try {
         await executeWithdrawAuthorityUpdate(newAuthority);
