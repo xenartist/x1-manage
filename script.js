@@ -1387,6 +1387,22 @@ function hideAccountSelectorModal() {
     }
 }
 
+// add: select new withdraw authority
+async function selectNewWithdrawAuthority(newAuthority, accountName) {
+    hideAccountSelectorModal();
+    
+    // confirm operation
+    if (!confirm(`Are you sure you want to update the withdraw authority to "${accountName}" (${newAuthority})?`)) {
+        return;
+    }
+    
+    try {
+        await executeWithdrawAuthorityUpdate(newAuthority);
+    } catch (error) {
+        showError('Failed to update withdraw authority: ' + error.message);
+    }
+}
+
 // add: manual address input modal
 function showManualAddressInputModal() {
     const existingModal = document.getElementById('manualAddressModal');
