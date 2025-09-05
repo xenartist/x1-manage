@@ -1904,11 +1904,15 @@ function switchTab(tabId) {
     console.log('Switched to tab:', tabId);
 }
 
-// modify: createStakeTab function - add authority indicators to tab title
+// modify: createStakeTab function - add stake status information
 function createStakeTab(stakeAccount, index) {
     const stakePubkey = stakeAccount.pubkey;
     const stakeData = stakeAccount.data;
     const lamports = stakeAccount.lamports;
+    
+    // get stake status information
+    const delegation = stakeData.stake?.delegation;
+    const stakeStatus = getStakeStatus(delegation);
     
     // get actual stake amount (delegated amount) if available, otherwise use total balance
     const delegatedStake = stakeData.stake?.delegation?.stake || 0;
@@ -1935,7 +1939,7 @@ function createStakeTab(stakeAccount, index) {
     
     const tabId = `stake-${index}`;
     
-    // create tab button with authority indicator
+    // create tab button with authority indicator and status
     const tabBtn = document.createElement('button');
     tabBtn.className = 'tab-btn';
     tabBtn.setAttribute('data-tab-id', tabId);
@@ -1947,12 +1951,19 @@ function createStakeTab(stakeAccount, index) {
             ${hasStakeAuthority ? '<i class="fas fa-key" title="Stake Authority"></i>' : ''}
             ${hasWithdrawAuthority ? '<i class="fas fa-hand-holding-usd" title="Withdraw Authority"></i>' : ''}
         </span>` : '';
+        
+    // add status indicator to tab
+    const statusIndicator = stakeStatus.isDeactivating ? 
+        `<span class="status-indicator deactivating" title="Deactivating">
+            <i class="fas fa-hourglass-half"></i>
+        </span>` : '';
     
     tabBtn.innerHTML = `
         <i class="fas fa-layer-group"></i>
         <span class="stake-rank">#${index + 1}</span>
         <span class="stake-amount">${formatAmount(solAmount)} SOL</span>
         ${authorityIndicator}
+        ${statusIndicator}
     `;
     
     // create tab content using vote account layout style
@@ -1988,6 +1999,18 @@ function createStakeTab(stakeAccount, index) {
                 </div>
             </div>
 
+            <!-- Stake Status -->
+            <div class="info-card stake-status-card">
+                <div class="info-header">
+                    <i class="fas fa-info-circle"></i>
+                    <h3>Stake Status</h3>
+                </div>
+                <div class="info-content">
+                    <span class="stake-status ${stakeStatus.class}">${stakeStatus.text}</span>
+                    ${stakeStatus.description ? `<div class="status-description">${stakeStatus.description}</div>` : ''}
+                </div>
+            </div>
+
             <!-- Account Balance -->
             <div class="info-card">
                 <div class="info-header">
@@ -2011,13 +2034,20 @@ function createStakeTab(stakeAccount, index) {
             </div>
 
             <!-- Active Stake -->
-            <div class="info-card">
+            <div class="info-card active-stake-card">
                 <div class="info-header">
                     <i class="fas fa-check-circle"></i>
                     <h3>Active Stake</h3>
                 </div>
                 <div class="info-content">
                     <span class="number">${(activeStake / solanaWeb3.LAMPORTS_PER_SOL).toFixed(6)} SOL</span>
+                    ${hasStakeAuthority && activeStake > 0 && !stakeStatus.isDeactivating ? 
+                        `<button class="deactivate-stake-btn" onclick="showDeactivateStakeModal('${stakePubkey}', ${(activeStake / solanaWeb3.LAMPORTS_PER_SOL).toFixed(6)})">
+                            <i class="fas fa-power-off"></i>
+                            Deactivate
+                        </button>` : 
+                        ''
+                    }
                 </div>
             </div>
 
@@ -2057,6 +2087,38 @@ function createStakeTab(stakeAccount, index) {
     `;
     
     return { tabBtn, tabContent };
+}
+
+// modify: function to get stake status information - remove activating state
+function getStakeStatus(delegation) {
+    if (!delegation) {
+        return {
+            text: 'Not Delegated',
+            class: 'status-inactive',
+            description: 'This stake account is not delegated to any validator',
+            isDeactivating: false
+        };
+    }
+    
+    // Check if stake is in deactivating state
+    // deactivationEpoch is set to a very large number (18446744073709551615) when not deactivating
+    const deactivationEpoch = delegation.deactivationEpoch;
+    if (deactivationEpoch && deactivationEpoch !== '18446744073709551615') {
+        return {
+            text: 'Deactivating',
+            class: 'status-deactivating',
+            description: 'Stake is being deactivated and will become withdrawable after several epochs',
+            isDeactivating: true
+        };
+    }
+    
+    // If delegated and not deactivating, it's active
+    return {
+        text: 'Active',
+        class: 'status-active',
+        description: 'Stake is active and earning rewards',
+        isDeactivating: false
+    };
 }
 
 // modify: createStakeTabs function - add more debugging
@@ -2458,3 +2520,136 @@ const stakeTabCSS = `
 `;
 
 console.log('X1 Vote Account Explorer with optimized Backpack detection loaded');
+
+// add: show deactivate stake modal
+function showDeactivateStakeModal(stakeAccountAddress, activeStakeAmount) {
+    const existingModal = document.getElementById('deactivateStakeModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const modal = document.createElement('div');
+    modal.id = 'deactivateStakeModal';
+    modal.className = 'modal';
+    
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-power-off"></i> Deactivate Stake</h3>
+                <button class="modal-close" onclick="hideDeactivateStakeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-note" style="margin-bottom: 16px; background: #fff3e0; color: #ef6c00; border-left: 4px solid #ff9800;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p><strong>Important:</strong> Deactivating stake will begin the process of undelegating your stake. It takes several epochs for the stake to become inactive and withdrawable.</p>
+                </div>
+                
+                <div class="stake-info" style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin: 12px 0;">
+                    <strong>Stake Account:</strong><br>
+                    <span style="font-family: monospace; color: #666; word-break: break-all;">${stakeAccountAddress}</span><br><br>
+                    <strong>Active Stake Amount:</strong> ${activeStakeAmount} SOL
+                </div>
+                
+                <div class="modal-note">
+                    <i class="fas fa-info-circle"></i>
+                    <small>This will create a transaction to deactivate the stake account. You'll need to sign the transaction with your stake authority. The stake will become inactive after several epochs.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="hideDeactivateStakeModal()">Cancel</button>
+                <button class="btn-confirm" onclick="executeStakeDeactivate('${stakeAccountAddress}')">Deactivate Stake</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    modal.classList.remove('hidden');
+}
+
+// add: hide deactivate stake modal
+function hideDeactivateStakeModal() {
+    const modal = document.getElementById('deactivateStakeModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        setTimeout(() => modal.remove(), 300);
+    }
+}
+
+// add: execute stake deactivate transaction
+async function executeStakeDeactivate(stakeAccountAddress) {
+    if (!walletConnected || !wallet) {
+        showError('Wallet not connected');
+        return;
+    }
+    
+    hideDeactivateStakeModal();
+    
+    // Confirm the operation
+    if (!confirm(`Are you sure you want to deactivate stake account:\n\n${stakeAccountAddress}\n\nThis action cannot be undone and will begin the undelegation process.`)) {
+        return;
+    }
+    
+    showInfo('Creating stake deactivate transaction...', true);
+    
+    try {
+        // Create public keys
+        const stakeAccountPubkey = new solanaWeb3.PublicKey(stakeAccountAddress);
+        const stakeAuthorityPubkey = new solanaWeb3.PublicKey(connectedWalletAddress);
+        
+        // Get latest blockhash
+        const { blockhash } = await connection.getLatestBlockhash('finalized');
+        
+        // Create transaction
+        const transaction = new solanaWeb3.Transaction({
+            recentBlockhash: blockhash,
+            feePayer: stakeAuthorityPubkey,
+        });
+        
+        // Create deactivate instruction using StakeProgram
+        const deactivateInstruction = solanaWeb3.StakeProgram.deactivate({
+            stakePubkey: stakeAccountPubkey,
+            authorizedPubkey: stakeAuthorityPubkey,
+        });
+        
+        transaction.add(deactivateInstruction);
+        
+        console.log('Stake deactivate transaction created:', {
+            stakeAccount: stakeAccountPubkey.toString(),
+            stakeAuthority: stakeAuthorityPubkey.toString()
+        });
+        
+        // Sign and send transaction
+        const signedTransaction = await wallet.signTransaction(transaction);
+        const signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+            skipPreflight: false,
+            preflightCommitment: 'confirmed'
+        });
+        
+        console.log('Transaction sent:', signature);
+        showInfo('Transaction sent! Waiting for confirmation...', true);
+        
+        // Wait for confirmation
+        await connection.confirmTransaction(signature, 'confirmed');
+        
+        const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+        showSuccess(`✅ Stake deactivated successfully! The stake will become inactive after several epochs. <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+        
+    } catch (error) {
+        console.error('Stake deactivate failed:', error);
+        
+        let errorMessage = 'Stake deactivate failed: ';
+        if (error.message && error.message.includes('User rejected')) {
+            errorMessage = 'Transaction was rejected by user';
+        } else if (error.message && error.message.includes('insufficient funds')) {
+            errorMessage = 'Insufficient funds for transaction fees';
+        } else if (error.message && error.message.includes('0x6')) {
+            errorMessage = 'Invalid stake authority - you must be the stake authority to deactivate';
+        } else {
+            errorMessage += error.message || 'Unknown error occurred';
+        }
+        
+        showError(errorMessage);
+    }
+}
