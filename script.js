@@ -1442,18 +1442,6 @@ function showManualAddressInputModal() {
                     <strong>Current Connected Wallet:</strong><br>
                     <span style="font-family: monospace; color: #666; word-break: break-all;">${connectedWalletAddress}</span>
                 </div>
-                
-                <div class="modal-note">
-                    <i class="fas fa-lightbulb"></i>
-                    <small>
-                        <strong>Alternative method:</strong> Ask the target wallet owner to:
-                        <ol style="margin: 8px 0; padding-left: 20px;">
-                            <li>Connect their Backpack wallet to this page</li>
-                            <li>Refresh the page and try the Update button again</li>
-                        </ol>
-                        This may allow automatic account detection.
-                    </small>
-                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="hideManualAddressModal()">Cancel</button>
