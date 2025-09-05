@@ -1678,6 +1678,9 @@ async function executeWithdrawAuthorityUpdate(newAuthority) {
         // update UI withdraw authority display
         withdrawAuthorityEl.textContent = newAuthority;
         
+        // immediately recheck withdraw authority match with current connected wallet
+        checkWithdrawAuthorityMatch();
+        
         const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
         
         // attempt to automatically switch to the new authority account
