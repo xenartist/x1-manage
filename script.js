@@ -1225,10 +1225,10 @@ async function handleSearch() {
     }
 }
 
-// fix: get Backpack wallet accounts - use correct data structure
+// modify: get Backpack wallet accounts - add fallback for manual input
 async function getBackpackAccounts() {
     if (!window.backpack?.solana || typeof window.backpack.solana._backpackGetAccounts !== 'function') {
-        throw new Error('Backpack wallet not available or method not supported');
+        throw new Error('MANUAL_INPUT_REQUIRED');
     }
     
     try {
@@ -1267,11 +1267,15 @@ async function getBackpackAccounts() {
         return accounts;
     } catch (error) {
         console.error('Failed to get Backpack accounts:', error);
+        // Throw manual input required for access denied errors
+        if (error.message && error.message.includes('Access Denied')) {
+            throw new Error('MANUAL_INPUT_REQUIRED');
+        }
         throw error;
     }
 }
 
-// add: show account selector modal
+// modify: show account selector modal - add manual input fallback
 function showAccountSelector() {
     if (!walletConnected) {
         showError('Please connect your wallet first');
@@ -1281,11 +1285,15 @@ function showAccountSelector() {
     getBackpackAccounts().then(accounts => {
         createAccountSelectorModal(accounts);
     }).catch(error => {
-        showError('Failed to retrieve wallet accounts: ' + error.message);
+        if (error.message === 'MANUAL_INPUT_REQUIRED') {
+            showManualAddressInputModal();
+        } else {
+            showError('Failed to retrieve wallet accounts: ' + error.message);
+        }
     });
 }
 
-// modify: create account selector modal - current account does not show select button
+// add: create account selector modal - current account does not show select button
 function createAccountSelectorModal(accounts) {
     console.log('Creating modal with accounts:', accounts);
     
@@ -1355,9 +1363,6 @@ function createAccountSelectorModal(accounts) {
                     <i class="fas fa-info-circle"></i>
                     <small>This will create a transaction to update the withdraw authority. You'll need to sign the transaction with the current withdraw authority.</small>
                 </div>
-                <div style="margin-top: 10px; padding: 8px; background: #f0f0f0; border-radius: 4px; font-family: monospace; font-size: 12px;">
-                    Debug: Found ${accounts.length} accounts
-                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="hideAccountSelectorModal()">Cancel</button>
@@ -1382,19 +1387,113 @@ function hideAccountSelectorModal() {
     }
 }
 
-// add: select new withdraw authority
-async function selectNewWithdrawAuthority(newAuthority, accountName) {
-    hideAccountSelectorModal();
+// add: manual address input modal
+function showManualAddressInputModal() {
+    const existingModal = document.getElementById('manualAddressModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
     
-    // confirm operation
-    if (!confirm(`Are you sure you want to update the withdraw authority to "${accountName}" (${newAuthority})?`)) {
+    const modal = document.createElement('div');
+    modal.id = 'manualAddressModal';
+    modal.className = 'modal';
+    
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-edit"></i> Update Withdraw Authority</h3>
+                <button class="modal-close" onclick="hideManualAddressModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-note" style="margin-bottom: 16px; background: #e3f2fd; color: #1565c0; border-left: 4px solid #2196f3;">
+                    <i class="fas fa-info-circle"></i>
+                    <p><strong>Multiple account selection not available</strong><br>
+                    Please enter the new withdraw authority address manually.</p>
+                </div>
+                
+                <div class="form-group">
+                    <label for="manualAddress">New Withdraw Authority Address:</label>
+                    <input 
+                        type="text" 
+                        id="manualAddress" 
+                        placeholder="Enter wallet address..." 
+                        autocomplete="off"
+                        style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: monospace; font-size: 14px;"
+                    >
+                </div>
+                
+                <div class="current-wallet-info" style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin: 12px 0;">
+                    <strong>Current Connected Wallet:</strong><br>
+                    <span style="font-family: monospace; color: #666; word-break: break-all;">${connectedWalletAddress}</span>
+                </div>
+                
+                <div class="modal-note">
+                    <i class="fas fa-lightbulb"></i>
+                    <small>
+                        <strong>Alternative method:</strong> Ask the target wallet owner to:
+                        <ol style="margin: 8px 0; padding-left: 20px;">
+                            <li>Connect their Backpack wallet to this page</li>
+                            <li>Refresh the page and try the Update button again</li>
+                        </ol>
+                        This may allow automatic account detection.
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="hideManualAddressModal()">Cancel</button>
+                <button class="btn-confirm" onclick="processManualAddressInput()">Update Authority</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    modal.classList.remove('hidden');
+    
+    setTimeout(() => {
+        document.getElementById('manualAddress').focus();
+    }, 100);
+}
+
+// add: hide manual address input modal
+function hideManualAddressModal() {
+    const modal = document.getElementById('manualAddressModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        setTimeout(() => modal.remove(), 300);
+    }
+}
+
+// add: process manual address input
+function processManualAddressInput() {
+    const addressInput = document.getElementById('manualAddress');
+    const newAddress = addressInput.value.trim();
+    
+    if (!newAddress) {
+        showError('Please enter a valid wallet address');
         return;
     }
     
+    // Validate address format
     try {
-        await executeWithdrawAuthorityUpdate(newAuthority);
+        new solanaWeb3.PublicKey(newAddress);
     } catch (error) {
-        showError('Failed to update withdraw authority: ' + error.message);
+        showError('Invalid wallet address format');
+        return;
+    }
+    
+    // Check if it's the same as current address
+    if (newAddress === connectedWalletAddress) {
+        showError('New address cannot be the same as current address');
+        return;
+    }
+    
+    hideManualAddressModal();
+    
+    // Confirm the update
+    if (confirm(`Are you sure you want to update the withdraw authority to:\n\n${newAddress}\n\nPlease verify this address is correct.`)) {
+        selectNewWithdrawAuthority(newAddress, 'Manual Input');
     }
 }
 
