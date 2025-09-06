@@ -50,6 +50,9 @@ const infoText = document.getElementById('infoText');
 const warningMessage = document.getElementById('warningMessage');
 const warningText = document.getElementById('warningText');
 
+// add: store current epoch globally for debugging
+window.currentEpochCache = null;
+
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing app...');
@@ -513,6 +516,27 @@ async function handleSearch() {
         // validate and create PublicKey
         const voteAccountPubkey = new solanaWeb3.PublicKey(voteAccountStr);
         
+        // GET CURRENT EPOCH EARLY - before any other queries
+        showInfo('Getting current epoch information...', true);
+        const currentEpoch = await getCurrentEpoch();
+        console.log('📅 Early epoch query result:', currentEpoch);
+        
+        if (currentEpoch === null) {
+            console.warn('⚠️ Failed to get current epoch, stake status may be inaccurate');
+        }
+        
+        // Store for global access
+        window.currentEpochCache = currentEpoch;
+        console.log('💾 Cached epoch globally:', window.currentEpochCache);
+        console.log('💾 Verification - cache set to:', window.currentEpochCache);
+        
+        // Double check
+        if (window.currentEpochCache !== currentEpoch) {
+            console.error('❌ Cache setting failed!');
+        } else {
+            console.log('✅ Cache setting successful');
+        }
+        
         // show info message for vote account loading
         showInfo('Loading vote account information...', true);
         
@@ -527,12 +551,13 @@ async function handleSearch() {
         console.log('Wallet connected:', walletConnected);
         console.log('Connected address:', connectedWalletAddress);
         console.log('Raw stake accounts:', stakeAccounts.length);
+        console.log('Current epoch (early):', currentEpoch);
         
         // IMPORTANT: Store the unsorted accounts first
         currentStakeAccounts = stakeAccounts;
         
-        // create stake tabs with proper wallet state
-        createStakeTabs(stakeAccounts);
+        // create stake tabs with current epoch info - PASS THE EPOCH!
+        await createStakeTabs(stakeAccounts, currentEpoch);
         
         // check withdraw authority match after displaying results
         if (walletConnected) {
@@ -1198,8 +1223,8 @@ async function handleSearch() {
         // IMPORTANT: Store the unsorted accounts first
         currentStakeAccounts = stakeAccounts;
         
-        // create stake tabs with proper wallet state
-        createStakeTabs(stakeAccounts);
+        // create stake tabs with proper wallet state  
+        await createStakeTabs(stakeAccounts);
         
         // check withdraw authority match after displaying results
         if (walletConnected) {
@@ -1904,15 +1929,15 @@ function switchTab(tabId) {
     console.log('Switched to tab:', tabId);
 }
 
-// modify: createStakeTab function - add stake status information
-function createStakeTab(stakeAccount, index) {
+// modify: createStakeTab function - get current epoch for accurate status
+async function createStakeTab(stakeAccount, index, currentEpoch = null) {
     const stakePubkey = stakeAccount.pubkey;
     const stakeData = stakeAccount.data;
     const lamports = stakeAccount.lamports;
     
-    // get stake status information
+    // get stake status information with current epoch
     const delegation = stakeData.stake?.delegation;
-    const stakeStatus = getStakeStatus(delegation);
+    const stakeStatus = await getStakeStatus(delegation, currentEpoch);
     
     // get actual stake amount (delegated amount) if available, otherwise use total balance
     const delegatedStake = stakeData.stake?.delegation?.stake || 0;
@@ -2089,9 +2114,13 @@ function createStakeTab(stakeAccount, index) {
     return { tabBtn, tabContent };
 }
 
-// modify: function to get stake status information - remove activating state
-function getStakeStatus(delegation) {
+// modify: function to get stake status information - fix deactivation logic with current epoch
+async function getStakeStatus(delegation, currentEpoch = null) {
+    console.log('🔍 getStakeStatus called with delegation:', delegation);
+    console.log('🔍 Current epoch provided:', currentEpoch);
+    
     if (!delegation) {
+        console.log('❌ No delegation found - returning Not Delegated');
         return {
             text: 'Not Delegated',
             class: 'status-inactive',
@@ -2103,16 +2132,57 @@ function getStakeStatus(delegation) {
     // Check if stake is in deactivating state
     // deactivationEpoch is set to a very large number (18446744073709551615) when not deactivating
     const deactivationEpoch = delegation.deactivationEpoch;
-    if (deactivationEpoch && deactivationEpoch !== '18446744073709551615') {
-        return {
-            text: 'Deactivating',
-            class: 'status-deactivating',
-            description: 'Stake is being deactivated and will become withdrawable after several epochs',
-            isDeactivating: true
-        };
+    
+    console.log('⏰ Checking deactivation status:');
+    console.log('  - deactivationEpoch raw:', deactivationEpoch);
+    console.log('  - deactivationEpoch type:', typeof deactivationEpoch);
+    console.log('  - deactivationEpoch string:', String(deactivationEpoch));
+    console.log('  - Is large number (strict):', deactivationEpoch === '18446744073709551615');
+    console.log('  - Is large number (loose):', deactivationEpoch == '18446744073709551615');
+    console.log('  - Is large number (number):', deactivationEpoch === 18446744073709551615);
+    
+    if (deactivationEpoch && 
+        deactivationEpoch !== '18446744073709551615' && 
+        deactivationEpoch != 18446744073709551615 &&
+        String(deactivationEpoch) !== '18446744073709551615') {
+        
+        const deactivationEpochNum = parseInt(deactivationEpoch);
+        console.log('  - deactivationEpoch as number:', deactivationEpochNum);
+        console.log('  - currentEpoch:', currentEpoch);
+        
+        if (currentEpoch !== null) {
+            if (currentEpoch > deactivationEpochNum) {
+                console.log('✅ Stake deactivation COMPLETED - now INACTIVE');
+                return {
+                    text: 'Inactive',
+                    class: 'status-inactive',
+                    description: `Stake deactivated at epoch ${deactivationEpochNum} and is now withdrawable`,
+                    isDeactivating: false
+                };
+            } else {
+                const epochsRemaining = deactivationEpochNum - currentEpoch;
+                console.log('⏳ Stake is DEACTIVATING -', epochsRemaining, 'epochs remaining');
+                return {
+                    text: 'Deactivating',
+                    class: 'status-deactivating',
+                    description: `Deactivating (${epochsRemaining} epoch(s) remaining until inactive)`,
+                    isDeactivating: true
+                };
+            }
+        } else {
+            // Fallback when we don't have current epoch info
+            console.log('⚠️ No current epoch info - assuming DEACTIVATING');
+            return {
+                text: 'Deactivating',
+                class: 'status-deactivating',
+                description: 'Stake is being deactivated (epoch info unavailable)',
+                isDeactivating: true
+            };
+        }
     }
     
     // If delegated and not deactivating, it's active
+    console.log('✅ Stake is ACTIVE');
     return {
         text: 'Active',
         class: 'status-active',
@@ -2121,10 +2191,31 @@ function getStakeStatus(delegation) {
     };
 }
 
-// modify: createStakeTabs function - add more debugging
-function createStakeTabs(stakeAccounts) {
+// modify: simplify getCurrentEpoch function since getEpochInfo works
+async function getCurrentEpoch() {
+    try {
+        console.log('🔍 Getting current epoch via getEpochInfo...');
+        const epochInfo = await connection.getEpochInfo();
+        console.log('📅 Epoch info received:', epochInfo);
+        
+        if (epochInfo && typeof epochInfo.epoch === 'number') {
+            console.log('✅ Current epoch:', epochInfo.epoch);
+            return epochInfo.epoch;
+        } else {
+            console.error('❌ Invalid epoch info structure:', epochInfo);
+            return null;
+        }
+    } catch (error) {
+        console.error('❌ Failed to get current epoch:', error);
+        return null;
+    }
+}
+
+// modify: createStakeTabs function - receive currentEpoch as parameter
+async function createStakeTabs(stakeAccounts, currentEpoch = null) {
     console.log('=== createStakeTabs called ===');
     console.log('Accounts to sort:', stakeAccounts.length);
+    console.log('Received currentEpoch:', currentEpoch);
     console.log('Wallet state:', {
         connected: walletConnected,
         address: connectedWalletAddress
@@ -2141,6 +2232,15 @@ function createStakeTabs(stakeAccounts) {
         console.log('No stake accounts found for this vote account');
         return;
     }
+    
+    // Use passed currentEpoch instead of querying again
+    if (currentEpoch === null) {
+        console.warn('⚠️ No currentEpoch provided, trying to get it now...');
+        currentEpoch = await getCurrentEpoch();
+        console.log('📅 Fallback epoch query result:', currentEpoch);
+    }
+    
+    console.log('📅 Using current epoch for status calculation:', currentEpoch);
     
     // enhanced sorting with debugging
     const sortedStakeAccounts = [...stakeAccounts].sort((a, b) => {
@@ -2183,11 +2283,13 @@ function createStakeTabs(stakeAccounts) {
     });
     
     // create tabs for each stake account in the sorted order
-    sortedStakeAccounts.forEach((stakeAccount, index) => {
-        const { tabBtn, tabContent } = createStakeTab(stakeAccount, index);
+    for (let index = 0; index < sortedStakeAccounts.length; index++) {
+        const stakeAccount = sortedStakeAccounts[index];
+        console.log(`🏗️ Creating tab ${index + 1} with epoch:`, currentEpoch);
+        const { tabBtn, tabContent } = await createStakeTab(stakeAccount, index, currentEpoch);
         stakeTabsContainer.appendChild(tabBtn);
         stakeTabsContent.appendChild(tabContent);
-    });
+    }
     
     // update global reference to sorted accounts
     currentStakeAccounts = sortedStakeAccounts;
@@ -2263,7 +2365,7 @@ function checkAndShowStakeAuthorityMatch(card, addressEl, authority, type) {
     }
 }
 
-// modify: switchTab function to check authorities when switching to stake tabs
+// modify: switchTab function - add debug info for stake tabs
 function switchTab(tabId) {
     console.log('Switching to tab:', tabId);
     
@@ -2293,7 +2395,10 @@ function switchTab(tabId) {
         
         // check authorities if this is a stake tab
         if (tabId.startsWith('stake-')) {
-            setTimeout(() => checkStakeAuthorities(tabId), 100);
+            setTimeout(() => {
+                checkStakeAuthorities(tabId);
+                debugCurrentStakeTab(tabId);
+            }, 100);
         }
     } else {
         console.warn('Could not find tab content for:', tabId);
@@ -2301,6 +2406,88 @@ function switchTab(tabId) {
     
     activeTab = tabId;
     console.log('Switched to tab:', tabId);
+}
+
+// modify: debug function - get epoch directly if cache fails
+function debugCurrentStakeTab(tabId) {
+    const stakeIndex = parseInt(tabId.replace('stake-', ''));
+    
+    if (currentStakeAccounts && currentStakeAccounts[stakeIndex]) {
+        const stakeAccount = currentStakeAccounts[stakeIndex];
+        const delegation = stakeAccount.data.stake?.delegation;
+        
+        console.group(`🔍 Debug Stake Tab ${stakeIndex + 1}`);
+        console.log('Stake Account Address:', stakeAccount.pubkey);
+        console.log('Raw Stake Data:', stakeAccount.data);
+        console.log('Full Delegation Object:', delegation);
+        
+        if (delegation) {
+            console.log('Delegation Details:');
+            console.log('  - Voter (Vote Account):', delegation.voter);
+            console.log('  - Stake Amount:', delegation.stake, 'lamports');
+            console.log('  - Activation Epoch:', delegation.activationEpoch);
+            console.log('  - Deactivation Epoch:', delegation.deactivationEpoch);
+            console.log('  - Deactivation Epoch (string):', String(delegation.deactivationEpoch));
+            console.log('  - Is Large Number?:', delegation.deactivationEpoch === '18446744073709551615');
+            console.log('  - Is Large Number (loose)?:', delegation.deactivationEpoch == '18446744073709551615');
+        }
+        
+        // Try cache first, if null then get current epoch directly
+        let currentEpoch = window.currentEpochCache;
+        console.log('🔧 Cached epoch:', currentEpoch);
+        
+        if (currentEpoch === null || currentEpoch === undefined) {
+            console.log('⚠️ Cache is null, getting epoch directly...');
+            getCurrentEpoch().then(epoch => {
+                console.log('📅 Fresh epoch result:', epoch);
+                
+                if (delegation) {
+                    const deactivationEpoch = parseInt(delegation.deactivationEpoch);
+                    console.log('📅 Deactivation epoch:', deactivationEpoch);
+                    console.log('📅 Current epoch (fresh):', epoch);
+                    if (epoch) {
+                        console.log('📅 Epochs since deactivation:', epoch - deactivationEpoch);
+                        console.log('❓ Should be inactive?:', epoch > deactivationEpoch);
+                    }
+                }
+                
+                const stakeStatus = getStakeStatus(delegation, epoch);
+                console.log('Computed Status (with fresh epoch):', stakeStatus);
+                
+                // Update global debug
+                window.currentDebugStake = {
+                    account: stakeAccount,
+                    delegation: delegation,
+                    status: stakeStatus,
+                    currentEpoch: epoch
+                };
+            });
+        } else {
+            // Use cached epoch
+            if (delegation) {
+                const deactivationEpoch = parseInt(delegation.deactivationEpoch);
+                console.log('📅 Deactivation epoch:', deactivationEpoch);
+                console.log('📅 Current epoch (cached):', currentEpoch);
+                if (currentEpoch) {
+                    console.log('📅 Epochs since deactivation:', currentEpoch - deactivationEpoch);
+                    console.log('❓ Should be inactive?:', currentEpoch > deactivationEpoch);
+                }
+            }
+            
+            const stakeStatus = getStakeStatus(delegation, currentEpoch);
+            console.log('Computed Status (with cached epoch):', stakeStatus);
+            
+            // Store to global for console access
+            window.currentDebugStake = {
+                account: stakeAccount,
+                delegation: delegation,
+                status: stakeStatus,
+                currentEpoch: currentEpoch
+            };
+        }
+        
+        console.groupEnd();
+    }
 }
 
 // modify: combine all dynamic CSS styles
@@ -2634,22 +2821,181 @@ async function executeStakeDeactivate(stakeAccountAddress) {
         await connection.confirmTransaction(signature, 'confirmed');
         
         const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
-        showSuccess(`✅ Stake deactivated successfully! The stake will become inactive after several epochs. <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
-        
+        showSuccess(`✅ Stake account deactivated successfully! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
     } catch (error) {
-        console.error('Stake deactivate failed:', error);
-        
-        let errorMessage = 'Stake deactivate failed: ';
-        if (error.message && error.message.includes('User rejected')) {
-            errorMessage = 'Transaction was rejected by user';
-        } else if (error.message && error.message.includes('insufficient funds')) {
-            errorMessage = 'Insufficient funds for transaction fees';
-        } else if (error.message && error.message.includes('0x6')) {
-            errorMessage = 'Invalid stake authority - you must be the stake authority to deactivate';
-        } else {
-            errorMessage += error.message || 'Unknown error occurred';
-        }
-        
-        showError(errorMessage);
+        console.error('Failed to deactivate stake account:', error);
+        showError('Failed to deactivate stake account: ' + error.message);
     }
 }
+
+// add: global debug functions for console access
+window.debugStakeStatus = function() {
+    console.group('🔍 Current Stake Tab Debug');
+    
+    if (!activeTab || !activeTab.startsWith('stake-')) {
+        console.log('❌ No stake tab is currently active');
+        console.groupEnd();
+        return;
+    }
+    
+    const stakeIndex = parseInt(activeTab.replace('stake-', ''));
+    if (currentStakeAccounts && currentStakeAccounts[stakeIndex]) {
+        debugCurrentStakeTab(activeTab);
+    } else {
+        console.log('❌ No stake account data found for current tab');
+    }
+    
+    console.groupEnd();
+};
+
+window.debugAllStakeAccounts = function() {
+    console.group('🔍 All Stake Accounts Debug');
+    
+    if (!currentStakeAccounts || currentStakeAccounts.length === 0) {
+        console.log('❌ No stake accounts loaded');
+        console.groupEnd();
+        return;
+    }
+    
+    currentStakeAccounts.forEach((stakeAccount, index) => {
+        console.group(`Stake Account ${index + 1}: ${stakeAccount.pubkey.slice(0,8)}...`);
+        console.log('Address:', stakeAccount.pubkey);
+        console.log('Delegation:', stakeAccount.data.stake?.delegation);
+        console.log('Status:', getStakeStatus(stakeAccount.data.stake?.delegation));
+        console.groupEnd();
+    });
+    
+    console.groupEnd();
+};
+
+window.compareWithCli = function(cliStatus) {
+    console.group('🔍 CLI vs Web Status Comparison');
+    
+    if (!activeTab || !activeTab.startsWith('stake-')) {
+        console.log('❌ No stake tab is currently active');
+        console.groupEnd();
+        return;
+    }
+    
+    const stakeIndex = parseInt(activeTab.replace('stake-', ''));
+    if (currentStakeAccounts && currentStakeAccounts[stakeIndex]) {
+        const stakeAccount = currentStakeAccounts[stakeIndex];
+        const webStatus = getStakeStatus(stakeAccount.data.stake?.delegation);
+        
+        console.log('CLI Status:', cliStatus);
+        console.log('Web Status:', webStatus.text);
+        console.log('Raw Delegation Data:', stakeAccount.data.stake?.delegation);
+        
+        if (cliStatus !== webStatus.text) {
+            console.warn('⚠️ MISMATCH detected between CLI and Web status!');
+        } else {
+            console.log('✅ CLI and Web status match');
+        }
+    }
+    
+    console.groupEnd();
+};
+
+// modify: debug function to include current epoch comparison
+window.debugStakeStatus = async function() {
+    console.group('🔍 Current Stake Tab Debug');
+    
+    if (!activeTab || !activeTab.startsWith('stake-')) {
+        console.log('❌ No stake tab is currently active');
+        console.groupEnd();
+        return;
+    }
+    
+    const currentEpoch = await getCurrentEpoch();
+    console.log('📅 Current epoch:', currentEpoch);
+    
+    const stakeIndex = parseInt(activeTab.replace('stake-', ''));
+    if (currentStakeAccounts && currentStakeAccounts[stakeIndex]) {
+        const stakeAccount = currentStakeAccounts[stakeIndex];
+        const delegation = stakeAccount.data.stake?.delegation;
+        
+        console.log('Stake Account Address:', stakeAccount.pubkey);
+        console.log('Raw Stake Data:', stakeAccount.data);
+        console.log('Full Delegation Object:', delegation);
+        
+        if (delegation) {
+            const deactivationEpoch = parseInt(delegation.deactivationEpoch);
+            console.log('Delegation Details:');
+            console.log('  - Voter (Vote Account):', delegation.voter);
+            console.log('  - Stake Amount:', delegation.stake, 'lamports');
+            console.log('  - Activation Epoch:', delegation.activationEpoch);
+            console.log('  - Deactivation Epoch:', delegation.deactivationEpoch);
+            console.log('  - Current Epoch:', currentEpoch);
+            console.log('  - Epochs passed since deactivation:', currentEpoch - deactivationEpoch);
+            console.log('  - Should be inactive?:', currentEpoch > deactivationEpoch);
+        }
+        
+        const stakeStatus = await getStakeStatus(delegation, currentEpoch);
+        console.log('Computed Status:', stakeStatus);
+        
+        // Store to global for console access
+        window.currentDebugStake = {
+            account: stakeAccount,
+            delegation: delegation,
+            status: stakeStatus,
+            currentEpoch: currentEpoch
+        };
+    }
+    
+    console.groupEnd();
+};
+
+// add: debug functions for console testing
+window.testEpochQuery = async function() {
+    console.group('🔍 Testing Epoch Query');
+    
+    console.log('🔧 Testing direct connection.getEpochInfo()...');
+    try {
+        const epochInfo = await connection.getEpochInfo();
+        console.log('✅ Direct call result:', epochInfo);
+    } catch (error) {
+        console.error('❌ Direct call failed:', error);
+    }
+    
+    console.log('🔧 Testing getCurrentEpoch() function...');
+    const epoch = await getCurrentEpoch();
+    console.log('🎯 getCurrentEpoch() result:', epoch);
+    
+    console.groupEnd();
+    return epoch;
+};
+
+window.testStakeStatusWithEpoch = async function(manualEpoch = null) {
+    console.group('🔍 Testing Stake Status with Epoch');
+    
+    if (!activeTab || !activeTab.startsWith('stake-')) {
+        console.log('❌ No stake tab active');
+        console.groupEnd();
+        return;
+    }
+    
+    const currentEpoch = manualEpoch || await getCurrentEpoch();
+    console.log('📅 Using epoch:', currentEpoch);
+    
+    const stakeIndex = parseInt(activeTab.replace('stake-', ''));
+    if (currentStakeAccounts && currentStakeAccounts[stakeIndex]) {
+        const stakeAccount = currentStakeAccounts[stakeIndex];
+        const delegation = stakeAccount.data.stake?.delegation;
+        
+        console.log('📋 Stake account:', stakeAccount.pubkey);
+        console.log('📋 Delegation:', delegation);
+        
+        if (delegation) {
+            const deactivationEpoch = parseInt(delegation.deactivationEpoch);
+            console.log('📅 Deactivation epoch:', deactivationEpoch);
+            console.log('📅 Current epoch:', currentEpoch);
+            console.log('📅 Epochs since deactivation:', currentEpoch - deactivationEpoch);
+            console.log('❓ Should be inactive?:', currentEpoch > deactivationEpoch);
+        }
+        
+        const status = await getStakeStatus(delegation, currentEpoch);
+        console.log('🎯 Computed status:', status);
+    }
+    
+    console.groupEnd();
+};
