@@ -2071,13 +2071,20 @@ async function createStakeTab(stakeAccount, index, currentEpoch = null) {
             </div>
 
             <!-- Account Balance -->
-            <div class="info-card">
+            <div class="info-card${stakeStatus.text === 'Inactive' && hasWithdrawAuthority ? ' balance-card' : ''}">
                 <div class="info-header">
                     <i class="fas fa-wallet"></i>
                     <h3>Account Balance</h3>
                 </div>
                 <div class="info-content">
                     <span class="balance">${totalBalance.toFixed(6)} XNT</span>
+                    ${stakeStatus.text === 'Inactive' && hasWithdrawAuthority && totalBalance > 0 ? 
+                        `<button class="withdraw-stake-btn" onclick="showStakeWithdrawModal('${stakePubkey}', ${totalBalance.toFixed(6)})">
+                            <i class="fas fa-arrow-right"></i>
+                            Withdraw
+                        </button>` : 
+                        ''
+                    }
                 </div>
             </div>
 
@@ -3034,3 +3041,156 @@ window.testStakeStatusWithEpoch = async function(manualEpoch = null) {
     
     console.groupEnd();
 };
+
+// add: show stake withdraw modal
+function showStakeWithdrawModal(stakeAccountAddress, availableBalance) {
+    const existingModal = document.getElementById('stakeWithdrawModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const modal = document.createElement('div');
+    modal.id = 'stakeWithdrawModal';
+    modal.className = 'modal';
+    
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-arrow-right"></i> Withdraw from Stake Account</h3>
+                <button class="modal-close" onclick="hideStakeWithdrawModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-note" style="margin-bottom: 16px; background: #e3f2fd; color: #1565c0; border-left: 4px solid #2196f3;">
+                    <i class="fas fa-info-circle"></i>
+                    <p><strong>Stake Account Withdrawal</strong><br>
+                    You can withdraw the full balance from this inactive stake account.</p>
+                </div>
+                
+                <div class="stake-account-info" style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin: 12px 0;">
+                    <strong>Stake Account:</strong><br>
+                    <span style="font-family: monospace; color: #666; word-break: break-all;">${stakeAccountAddress}</span><br><br>
+                    <strong>Available Balance:</strong> ${availableBalance} XNT
+                </div>
+                
+                <div class="form-group">
+                    <label for="stakeWithdrawAmount">Amount (XNT):</label>
+                    <input type="number" id="stakeWithdrawAmount" step="0.000000001" placeholder="Enter amount in XNT" value="${availableBalance}" autocomplete="off">
+                </div>
+                
+                <div class="form-group">
+                    <label for="stakeWithdrawTo">Withdraw to:</label>
+                    <input type="text" id="stakeWithdrawTo" placeholder="Recipient address" value="${connectedWalletAddress}" autocomplete="off">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="hideStakeWithdrawModal()">Cancel</button>
+                <button class="btn-confirm" onclick="executeStakeWithdraw('${stakeAccountAddress}')">Withdraw</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    modal.classList.remove('hidden');
+    
+    setTimeout(() => {
+        document.getElementById('stakeWithdrawAmount').focus();
+    }, 100);
+}
+
+// add: hide stake withdraw modal
+function hideStakeWithdrawModal() {
+    const modal = document.getElementById('stakeWithdrawModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        setTimeout(() => modal.remove(), 300);
+    }
+}
+
+// add: execute stake withdraw transaction
+async function executeStakeWithdraw(stakeAccountAddress) {
+    if (!walletConnected || !wallet) {
+        showError('Wallet not connected');
+        return;
+    }
+    
+    const amount = parseFloat(document.getElementById('stakeWithdrawAmount').value);
+    const recipient = document.getElementById('stakeWithdrawTo').value.trim();
+
+    if (!amount || amount <= 0) {
+        showError('Please enter a valid amount');
+        return;
+    }
+
+    if (!recipient) {
+        showError('Please enter recipient address');
+        return;
+    }
+    
+    hideStakeWithdrawModal();
+    
+    // Confirm the operation
+    if (!confirm(`Are you sure you want to withdraw ${amount} XNT from stake account:\n\n${stakeAccountAddress}\n\nTo: ${recipient}`)) {
+        return;
+    }
+    
+    showInfo('Creating stake withdraw transaction...', true);
+    
+    try {
+        // Create public keys
+        const stakeAccountPubkey = new solanaWeb3.PublicKey(stakeAccountAddress);
+        const withdrawAuthorityPubkey = new solanaWeb3.PublicKey(connectedWalletAddress);
+        const recipientPubkey = new solanaWeb3.PublicKey(recipient);
+        
+        // Convert XNT to lamports
+        const lamports = Math.floor(amount * solanaWeb3.LAMPORTS_PER_SOL);
+        
+        // Get latest blockhash
+        const { blockhash } = await connection.getLatestBlockhash('finalized');
+        
+        // Create transaction
+        const transaction = new solanaWeb3.Transaction({
+            recentBlockhash: blockhash,
+            feePayer: withdrawAuthorityPubkey,
+        });
+        
+        // Create withdraw instruction using StakeProgram
+        const withdrawInstruction = solanaWeb3.StakeProgram.withdraw({
+            stakePubkey: stakeAccountPubkey,
+            authorizedPubkey: withdrawAuthorityPubkey,
+            toPubkey: recipientPubkey,
+            lamports: lamports,
+        });
+        
+        transaction.add(withdrawInstruction);
+        
+        console.log('Stake withdraw transaction created:', {
+            stakeAccount: stakeAccountPubkey.toString(),
+            withdrawAuthority: withdrawAuthorityPubkey.toString(),
+            recipient: recipientPubkey.toString(),
+            amount: amount,
+            lamports: lamports
+        });
+        
+        // Sign and send transaction
+        const signedTransaction = await wallet.signTransaction(transaction);
+        const signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+            skipPreflight: false,
+            preflightCommitment: 'confirmed'
+        });
+        
+        console.log('Transaction sent:', signature);
+        showInfo('Transaction sent! Waiting for confirmation...', true);
+        
+        // Wait for confirmation
+        await connection.confirmTransaction(signature, 'confirmed');
+        
+        const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+        showSuccess(`✅ Stake withdrawal successful! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+        
+    } catch (error) {
+        console.error('Failed to withdraw from stake account:', error);
+        showError('Failed to withdraw from stake account: ' + error.message);
+    }
+}

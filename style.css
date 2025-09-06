@@ -1728,3 +1728,46 @@ body {
         text-align: center;
     }
 }
+
+/* Withdraw stake button - 与 withdraw 按钮保持一致的样式 */
+.withdraw-stake-btn {
+    flex: 0 0 auto;
+    width: 100px;
+    height: 32px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
+}
+
+.withdraw-stake-btn:hover {
+    background: linear-gradient(135deg, #5a67d8 0%, #667eea 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+.withdraw-stake-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
+}
+
+.withdraw-stake-btn:disabled {
+    background: #e0e0e0;
+    color: #9e9e9e;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
+.withdraw-stake-btn i {
+    font-size: 10px;
+}
