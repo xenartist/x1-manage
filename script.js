@@ -392,6 +392,13 @@ function updateWalletUI(address) {
         // Check withdraw authority if results are visible
         if (!resultsSection.classList.contains('hidden')) {
             checkWithdrawAuthorityMatch();
+            
+            // check stake authority match for current active tab
+            if (activeTab && activeTab.startsWith('stake-')) {
+                setTimeout(() => {
+                    checkStakeAuthorities(activeTab);
+                }, 100);
+            }
         }
     } else {
         // Disconnected state
@@ -2367,18 +2374,55 @@ function checkStakeAuthorities(tabId) {
     }
 }
 
-// add: function to check and show authority match for stake accounts
+// modify: function to check and show authority match for stake accounts - add update button for stake authority
 function checkAndShowStakeAuthorityMatch(card, addressEl, authority, type) {
-    // remove existing indicator
+    // remove existing indicator and button
     const existingIndicator = card.querySelector('.authority-match-indicator');
+    const existingButton = card.querySelector('.update-stake-authority-btn');
+    
     if (existingIndicator) {
         existingIndicator.remove();
+    }
+    if (existingButton) {
+        existingButton.remove();
     }
     
     // remove existing classes
     card.classList.remove('authority-match', 'authority-no-match');
     
     if (authority && authority !== 'N/A' && authority !== '-') {
+        // For stake authority, add update button when user has authority
+        if (type === 'stake' && authority === connectedWalletAddress) {
+            // ensure address is wrapped in the appropriate container
+            let addressParent = addressEl.parentElement;
+            
+            // if address is not in address-container, create one
+            if (!addressParent.classList.contains('address-container')) {
+                const addressContainer = document.createElement('div');
+                addressContainer.className = 'address-container';
+                
+                // move address element to new container
+                addressParent.insertBefore(addressContainer, addressEl);
+                addressContainer.appendChild(addressEl);
+                
+                addressParent = addressContainer;
+            }
+            
+            // create Update button for stake authority
+            const updateButton = document.createElement('button');
+            updateButton.className = 'update-stake-authority-btn';
+            updateButton.onclick = () => showStakeAuthoritySelector();
+            updateButton.innerHTML = `
+                <i class="fas fa-edit"></i>
+                Update
+            `;
+            
+            // add button to address container
+            addressParent.appendChild(updateButton);
+            
+            console.log('Update button added to stake authority container');
+        }
+        
         const indicator = document.createElement('div');
         indicator.className = 'authority-match-indicator';
         
@@ -3192,5 +3236,309 @@ async function executeStakeWithdraw(stakeAccountAddress) {
     } catch (error) {
         console.error('Failed to withdraw from stake account:', error);
         showError('Failed to withdraw from stake account: ' + error.message);
+    }
+}
+
+// add: show stake authority selector
+function showStakeAuthoritySelector() {
+    if (!walletConnected) {
+        showError('Please connect your wallet first');
+        return;
+    }
+    
+    getBackpackAccounts().then(accounts => {
+        createStakeAuthorityModal(accounts);
+    }).catch(error => {
+        if (error.message === 'MANUAL_INPUT_REQUIRED') {
+            showManualStakeAuthorityInputModal();
+        } else {
+            showError('Failed to retrieve wallet accounts: ' + error.message);
+        }
+    });
+}
+
+// add: create stake authority selector modal
+function createStakeAuthorityModal(accounts) {
+    console.log('Creating stake authority modal with accounts:', accounts);
+    
+    if (!accounts || accounts.length === 0) {
+        showError('No accounts found in Backpack wallet');
+        return;
+    }
+    
+    // check if modal exists, if exists, remove it
+    const existingModal = document.getElementById('stakeAuthoritySelectorModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const modal = document.createElement('div');
+    modal.id = 'stakeAuthoritySelectorModal';
+    modal.className = 'modal';
+    
+    // generate accounts list HTML
+    const accountsHTML = accounts.map(account => {
+        const showSelectButton = !account.isActive;
+        
+        return `
+            <div class="account-item" data-public-key="${account.publicKey}">
+                <div class="account-info">
+                    <div class="account-name">
+                        ${account.username}
+                        ${account.isActive ? '<span class="active-badge">Current</span>' : ''}
+                    </div>
+                    <div class="account-address">${account.publicKey}</div>
+                </div>
+                ${showSelectButton ? 
+                    `<button class="select-account-btn" onclick="selectNewStakeAuthority('${account.publicKey}', '${account.username}')">
+                        Select
+                    </button>` : 
+                    `<span class="current-indicator">
+                        <i class="fas fa-check"></i>
+                        Current
+                    </span>`
+                }
+            </div>
+        `;
+    }).join('');
+    
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-users"></i> Select New Stake Authority</h3>
+                <button class="modal-close" onclick="hideStakeAuthoritySelectorModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 16px; color: #666; font-size: 14px;">
+                    Choose which wallet address should become the new stake authority for this stake account:
+                </p>
+                <div class="account-list">
+                    ${accountsHTML}
+                </div>
+                <div class="modal-note">
+                    <i class="fas fa-info-circle"></i>
+                    <small>This will create a transaction to update the stake authority. You'll need to sign the transaction with the current stake authority.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="hideStakeAuthoritySelectorModal()">Cancel</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    modal.classList.remove('hidden');
+}
+
+// add: hide stake authority selector modal
+function hideStakeAuthoritySelectorModal() {
+    const modal = document.getElementById('stakeAuthoritySelectorModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        setTimeout(() => modal.remove(), 300);
+    }
+}
+
+// add: manual stake authority input modal
+function showManualStakeAuthorityInputModal() {
+    const existingModal = document.getElementById('manualStakeAuthorityModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const modal = document.createElement('div');
+    modal.id = 'manualStakeAuthorityModal';
+    modal.className = 'modal';
+    
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-edit"></i> Update Stake Authority</h3>
+                <button class="modal-close" onclick="hideManualStakeAuthorityModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-note" style="margin-bottom: 16px; background: #e3f2fd; color: #1565c0; border-left: 4px solid #2196f3;">
+                    <i class="fas fa-info-circle"></i>
+                    <p><strong>Multiple account selection not available</strong><br>
+                    Please enter the new stake authority address manually.</p>
+                </div>
+                
+                <div class="form-group">
+                    <label for="manualStakeAuthority">New Stake Authority Address:</label>
+                    <input 
+                        type="text" 
+                        id="manualStakeAuthority" 
+                        placeholder="Enter wallet address..." 
+                        autocomplete="off"
+                        style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: monospace; font-size: 14px;"
+                    >
+                </div>
+                
+                <div class="current-wallet-info" style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin: 12px 0;">
+                    <strong>Current Connected Wallet:</strong><br>
+                    <span style="font-family: monospace; color: #666; word-break: break-all;">${connectedWalletAddress}</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="hideManualStakeAuthorityModal()">Cancel</button>
+                <button class="btn-confirm" onclick="processManualStakeAuthorityInput()">Update Authority</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    modal.classList.remove('hidden');
+    
+    setTimeout(() => {
+        document.getElementById('manualStakeAuthority').focus();
+    }, 100);
+}
+
+// add: hide manual stake authority input modal
+function hideManualStakeAuthorityModal() {
+    const modal = document.getElementById('manualStakeAuthorityModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        setTimeout(() => modal.remove(), 300);
+    }
+}
+
+// add: process manual stake authority input
+function processManualStakeAuthorityInput() {
+    const addressInput = document.getElementById('manualStakeAuthority');
+    const newAddress = addressInput.value.trim();
+    
+    if (!newAddress) {
+        showError('Please enter a valid wallet address');
+        return;
+    }
+    
+    // Validate address format
+    try {
+        new solanaWeb3.PublicKey(newAddress);
+    } catch (error) {
+        showError('Invalid wallet address format');
+        return;
+    }
+    
+    // Check if it's the same as current address
+    if (newAddress === connectedWalletAddress) {
+        showError('New address cannot be the same as current address');
+        return;
+    }
+    
+    hideManualStakeAuthorityModal();
+    
+    // Confirm the update
+    if (confirm(`Are you sure you want to update the stake authority to:\n\n${newAddress}\n\nPlease verify this address is correct.`)) {
+        selectNewStakeAuthority(newAddress, 'Manual Input');
+    }
+}
+
+// add: select new stake authority
+async function selectNewStakeAuthority(newAuthority, accountName) {
+    hideStakeAuthoritySelectorModal();
+    
+    try {
+        await executeStakeAuthorityUpdate(newAuthority);
+    } catch (error) {
+        showError('Failed to update stake authority: ' + error.message);
+    }
+}
+
+// add: execute stake authority update transaction
+async function executeStakeAuthorityUpdate(newAuthority) {
+    if (!walletConnected || !wallet) {
+        throw new Error('Wallet not connected');
+    }
+    
+    // Get current stake account information
+    const currentTabId = activeTab;
+    if (!currentTabId || !currentTabId.startsWith('stake-')) {
+        throw new Error('No stake tab is currently active');
+    }
+    
+    const stakeIndex = parseInt(currentTabId.replace('stake-', ''));
+    if (!currentStakeAccounts || !currentStakeAccounts[stakeIndex]) {
+        throw new Error('No stake account data found');
+    }
+    
+    const currentStakeAccount = currentStakeAccounts[stakeIndex];
+    const stakeAccountAddress = currentStakeAccount.pubkey;
+    const currentStakeAuthority = currentStakeAccount.data.meta?.authorized?.staker;
+    
+    if (currentStakeAuthority !== connectedWalletAddress) {
+        throw new Error('You must be the current stake authority to update it');
+    }
+    
+    showInfo('Creating stake authority update transaction...', true);
+    
+    try {
+        const stakeAccountPubkey = new solanaWeb3.PublicKey(stakeAccountAddress);
+        const currentStakeAuthorityPubkey = new solanaWeb3.PublicKey(currentStakeAuthority);
+        const newStakeAuthorityPubkey = new solanaWeb3.PublicKey(newAuthority);
+        
+        // get latest blockhash
+        const { blockhash } = await connection.getLatestBlockhash('finalized');
+        
+        // create transaction
+        const transaction = new solanaWeb3.Transaction({
+            recentBlockhash: blockhash,
+            feePayer: currentStakeAuthorityPubkey,
+        });
+        
+        // use StakeProgram.authorize to update stake authority
+        const authorizeInstruction = solanaWeb3.StakeProgram.authorize({
+            stakePubkey: stakeAccountPubkey,
+            authorizedPubkey: currentStakeAuthorityPubkey,
+            newAuthorizedPubkey: newStakeAuthorityPubkey,
+            stakeAuthorizationType: { staker: {} }
+        });
+        
+        transaction.add(authorizeInstruction);
+        
+        console.log('StakeProgram.authorize transaction created:', {
+            stakeAccount: stakeAccountPubkey.toString(),
+            currentStakeAuthority: currentStakeAuthorityPubkey.toString(),
+            newStakeAuthority: newStakeAuthorityPubkey.toString(),
+            authorizationType: 'StakeAuthorizationType.Staker'
+        });
+        
+        // sign and send transaction
+        const signedTransaction = await wallet.signTransaction(transaction);
+        const signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+            skipPreflight: false,
+            preflightCommitment: 'confirmed'
+        });
+        
+        console.log('Transaction sent:', signature);
+        showInfo('Transaction sent! Waiting for confirmation...', true);
+        
+        // wait for confirmation
+        await connection.confirmTransaction(signature, 'confirmed');
+        
+        // update UI stake authority display
+        const tabContent = document.getElementById(currentTabId);
+        if (tabContent) {
+            const stakeAuthorityCard = tabContent.querySelector('.stake-authority-card');
+            const stakeAuthorityEl = tabContent.querySelector('.stake-authority-address');
+            if (stakeAuthorityEl && stakeAuthorityCard) {
+                // update displayed address
+                stakeAuthorityEl.textContent = newAuthority;
+                // re-check authority match status
+                checkAndShowStakeAuthorityMatch(stakeAuthorityCard, stakeAuthorityEl, newAuthority, 'stake');
+            }
+        }
+        
+        const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+        showSuccess(`✅ Stake authority updated successfully! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+        
+    } catch (error) {
+        console.error('Update stake authority failed:', error);
+        throw error;
     }
 }
