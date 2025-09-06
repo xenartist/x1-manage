@@ -2004,8 +2004,21 @@ async function createStakeTab(stakeAccount, index, currentEpoch = null) {
     // extract authorities
     const delegatedVoteAccount = stakeData.stake?.delegation?.voter || 'N/A';
     
-    // determine active stake (same as delegated stake for active stakes)
-    const activeStake = stakeData.stake ? delegatedStake : 0;
+    // determine active stake based on status
+    let activeStake;
+    switch (stakeStatus.text) {
+        case 'Active':
+            activeStake = delegatedStake;
+            break;
+        case 'Deactivating':
+            activeStake = delegatedStake; // still has value while deactivating
+            break;
+        case 'Inactive':
+            activeStake = 0; // already inactive, active stake is 0
+            break;
+        default:
+            activeStake = 0;
+    }
     
     // determine stake card title and icon based on status
     let stakeCardTitle, stakeCardIcon, stakeCardClass;
