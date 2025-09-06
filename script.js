@@ -2080,15 +2080,13 @@ async function createStakeTab(stakeAccount, index, currentEpoch = null) {
             </div>
 
             <!-- Combined Active/Deactivating/Inactive Stake with Status -->
-            <div class="info-card ${stakeCardClass}">
+            <div class="info-card active-stake-card">
                 <div class="info-header">
-                    <i class="${stakeCardIcon}"></i>
-                    <h3>${stakeCardTitle}</h3>
+                    <i class="fas fa-check-circle"></i>
+                    <h3>Active Stake</h3>
                 </div>
                 <div class="info-content">
-                    <div class="stake-info">
-                        <span class="number stake-status ${stakeStatus.class}">${(activeStake / solanaWeb3.LAMPORTS_PER_SOL).toFixed(6)} SOL</span>
-                    </div>
+                    <span class="number">${(activeStake / solanaWeb3.LAMPORTS_PER_SOL).toFixed(6)} SOL</span>
                     ${showDeactivateButton ? 
                         `<button class="deactivate-stake-btn" onclick="showDeactivateStakeModal('${stakePubkey}', ${(activeStake / solanaWeb3.LAMPORTS_PER_SOL).toFixed(6)})">
                             <i class="fas fa-power-off"></i>
@@ -2096,8 +2094,8 @@ async function createStakeTab(stakeAccount, index, currentEpoch = null) {
                         </button>` : 
                         ''
                     }
-                    ${stakeStatus.description ? `<div class="status-description">${stakeStatus.description}</div>` : ''}
                 </div>
+                ${stakeStatus.description ? `<div class="status-description">${stakeStatus.description}</div>` : ''}
             </div>
 
             <!-- Delegated Vote Account -->
