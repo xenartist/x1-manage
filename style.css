@@ -1594,59 +1594,162 @@ body {
     box-shadow: none;
 }
 
-/* Active stake card layout */
-.active-stake-card .info-content {
+/* Combined stake status card styles - inherit base card styling */
+.deactivating-stake-card .info-header i,
+.deactivating-stake-card .stake-status {
+    color: #ef6c00;
+}
+
+.deactivating-stake-card {
+    background: rgba(255, 152, 0, 0.05);
+    border-left: 4px solid #ff9800 !important; /* Override default border */
+}
+
+.inactive-stake-card .info-header i,
+.inactive-stake-card .stake-status {
+    color: #757575;
+}
+
+.inactive-stake-card {
+    background: rgba(158, 158, 158, 0.05);
+    border-left: 4px solid #9e9e9e !important; /* Override default border */
+}
+
+.active-stake-card .info-header i,
+.active-stake-card .stake-status {
+    color: #2e7d32;
+}
+
+.active-stake-card {
+    background: rgba(76, 175, 80, 0.05);
+    border-left: 4px solid #4caf50 !important; /* Override default border */
+}
+
+/* Status indicator for inactive stake in tab */
+.status-indicator.inactive {
+    background: rgba(158, 158, 158, 0.2);
+    color: #757575;
+}
+
+/* ONLY modify the content area for layout, keep base card styling */
+.active-stake-card .info-content,
+.deactivating-stake-card .info-content,
+.inactive-stake-card .info-content {
     display: flex !important;
     flex-direction: row !important;
-    align-items: center !important;
-    justify-content: space-between !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    text-align: left !important;
+    flex-wrap: wrap !important;
     gap: 12px !important;
 }
 
-.active-stake-card .number {
-    flex: 1;
+/* Stake amount and status container - flexible width, left aligned */
+.active-stake-card .info-content .stake-info,
+.deactivating-stake-card .info-content .stake-info,
+.inactive-stake-card .info-content .stake-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
     min-width: 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    text-align: left;
+    justify-content: flex-start;
 }
 
-/* Stake status styles */
-.stake-status-card .stake-status {
-    font-weight: 600;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 14px;
+/* Ensure the stake amount text is left aligned and fills available space */
+.stake-info .number {
+    word-break: break-all;
+    line-height: 1.4;
+    text-align: left !important;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    display: block;
 }
 
-.stake-status.status-active {
-    color: #2e7d32;
-    background: rgba(76, 175, 80, 0.1);
+/* Override any center alignment from parent classes */
+.active-stake-card .info-content .number,
+.deactivating-stake-card .info-content .number,
+.inactive-stake-card .info-content .number {
+    text-align: left !important;
+    justify-self: flex-start;
 }
 
-.stake-status.status-deactivating {
-    color: #ef6c00;
-    background: rgba(255, 152, 0, 0.1);
+/* Deactivate button styling - fixed width, aligned to right */
+.deactivate-stake-btn {
+    width: 100px;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    flex: 0 0 100px;
+    height: fit-content;
+    align-self: flex-start;
 }
 
-.stake-status.status-inactive {
-    color: #757575;
-    background: rgba(158, 158, 158, 0.1);
+.deactivate-stake-btn:hover {
+    background: linear-gradient(135deg, #e53935 0%, #c62828 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
-.status-description {
+.deactivate-stake-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.deactivate-stake-btn i {
+    font-size: 10px;
+}
+
+/* Status description styling */
+.info-card .status-description {
     font-size: 12px;
     color: #666;
     margin-top: 4px;
     font-style: italic;
+    line-height: 1.4;
 }
 
-/* Status indicator in tab */
-.status-indicator {
-    margin-left: 4px;
-    padding: 2px 4px;
-    border-radius: 10px;
-    font-size: 10px;
+/* Ensure description appears below the main content - full width, left aligned */
+.active-stake-card .info-content .status-description,
+.deactivating-stake-card .info-content .status-description,
+.inactive-stake-card .info-content .status-description {
+    width: 100%;
+    margin-top: 8px;
+    order: 10;
+    flex: 1 1 100%;
+    text-align: left !important;
 }
 
-.status-indicator.deactivating {
-    background: rgba(255, 152, 0, 0.2);
-    color: #ef6c00;
+/* Responsive behavior */
+@media (max-width: 768px) {
+    .active-stake-card .info-content,
+    .deactivating-stake-card .info-content,
+    .inactive-stake-card .info-content {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    
+    .deactivate-stake-btn {
+        width: 100%;
+        flex: none;
+        margin-top: 8px;
+    }
+    
+    .stake-info .number {
+        text-align: left !important;
+    }
 }

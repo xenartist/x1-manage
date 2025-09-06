@@ -1929,7 +1929,7 @@ function switchTab(tabId) {
     console.log('Switched to tab:', tabId);
 }
 
-// modify: createStakeTab function - get current epoch for accurate status
+// modify: createStakeTab function - merge Stake Status into Active Stake card
 async function createStakeTab(stakeAccount, index, currentEpoch = null) {
     const stakePubkey = stakeAccount.pubkey;
     const stakeData = stakeAccount.data;
@@ -1941,7 +1941,8 @@ async function createStakeTab(stakeAccount, index, currentEpoch = null) {
     
     // get actual stake amount (delegated amount) if available, otherwise use total balance
     const delegatedStake = stakeData.stake?.delegation?.stake || 0;
-    const solAmount = delegatedStake / solanaWeb3.LAMPORTS_PER_SOL;
+    const effectiveDelegatedStake = stakeStatus.text === 'Inactive' ? 0 : delegatedStake;
+    const solAmount = effectiveDelegatedStake / solanaWeb3.LAMPORTS_PER_SOL;
     const totalBalance = lamports / solanaWeb3.LAMPORTS_PER_SOL;
     
     // check if user has authority
@@ -1981,7 +1982,11 @@ async function createStakeTab(stakeAccount, index, currentEpoch = null) {
     const statusIndicator = stakeStatus.isDeactivating ? 
         `<span class="status-indicator deactivating" title="Deactivating">
             <i class="fas fa-hourglass-half"></i>
-        </span>` : '';
+        </span>` : 
+        (stakeStatus.text === 'Inactive' ? 
+        `<span class="status-indicator inactive" title="Inactive">
+            <i class="fas fa-stop-circle"></i>
+        </span>` : '');
     
     tabBtn.innerHTML = `
         <i class="fas fa-layer-group"></i>
@@ -2002,6 +2007,34 @@ async function createStakeTab(stakeAccount, index, currentEpoch = null) {
     // determine active stake (same as delegated stake for active stakes)
     const activeStake = stakeData.stake ? delegatedStake : 0;
     
+    // determine stake card title and icon based on status
+    let stakeCardTitle, stakeCardIcon, stakeCardClass;
+    
+    switch (stakeStatus.text) {
+        case 'Active':
+            stakeCardTitle = 'Active Stake';
+            stakeCardIcon = 'fas fa-check-circle';
+            stakeCardClass = 'active-stake-card';
+            break;
+        case 'Deactivating':
+            stakeCardTitle = 'Deactivating Stake';
+            stakeCardIcon = 'fas fa-hourglass-half';
+            stakeCardClass = 'deactivating-stake-card';
+            break;
+        case 'Inactive':
+            stakeCardTitle = 'Inactive Stake';
+            stakeCardIcon = 'fas fa-stop-circle';
+            stakeCardClass = 'inactive-stake-card';
+            break;
+        default:
+            stakeCardTitle = 'Stake Status';
+            stakeCardIcon = 'fas fa-question-circle';
+            stakeCardClass = 'unknown-stake-card';
+    }
+    
+    // determine if deactivate button should be enabled
+    const showDeactivateButton = hasStakeAuthority && activeStake > 0 && stakeStatus.text === 'Active';
+    
     tabContent.innerHTML = `
         <div class="stake-summary-card">
             <div class="stake-summary-title">
@@ -2021,18 +2054,6 @@ async function createStakeTab(stakeAccount, index, currentEpoch = null) {
                 </div>
                 <div class="info-content">
                     <span class="address">${stakePubkey}</span>
-                </div>
-            </div>
-
-            <!-- Stake Status -->
-            <div class="info-card stake-status-card">
-                <div class="info-header">
-                    <i class="fas fa-info-circle"></i>
-                    <h3>Stake Status</h3>
-                </div>
-                <div class="info-content">
-                    <span class="stake-status ${stakeStatus.class}">${stakeStatus.text}</span>
-                    ${stakeStatus.description ? `<div class="status-description">${stakeStatus.description}</div>` : ''}
                 </div>
             </div>
 
@@ -2058,21 +2079,24 @@ async function createStakeTab(stakeAccount, index, currentEpoch = null) {
                 </div>
             </div>
 
-            <!-- Active Stake -->
-            <div class="info-card active-stake-card">
+            <!-- Combined Active/Deactivating/Inactive Stake with Status -->
+            <div class="info-card ${stakeCardClass}">
                 <div class="info-header">
-                    <i class="fas fa-check-circle"></i>
-                    <h3>Active Stake</h3>
+                    <i class="${stakeCardIcon}"></i>
+                    <h3>${stakeCardTitle}</h3>
                 </div>
                 <div class="info-content">
-                    <span class="number">${(activeStake / solanaWeb3.LAMPORTS_PER_SOL).toFixed(6)} SOL</span>
-                    ${hasStakeAuthority && activeStake > 0 && !stakeStatus.isDeactivating ? 
+                    <div class="stake-info">
+                        <span class="number stake-status ${stakeStatus.class}">${(activeStake / solanaWeb3.LAMPORTS_PER_SOL).toFixed(6)} SOL</span>
+                    </div>
+                    ${showDeactivateButton ? 
                         `<button class="deactivate-stake-btn" onclick="showDeactivateStakeModal('${stakePubkey}', ${(activeStake / solanaWeb3.LAMPORTS_PER_SOL).toFixed(6)})">
                             <i class="fas fa-power-off"></i>
                             Deactivate
                         </button>` : 
                         ''
                     }
+                    ${stakeStatus.description ? `<div class="status-description">${stakeStatus.description}</div>` : ''}
                 </div>
             </div>
 
