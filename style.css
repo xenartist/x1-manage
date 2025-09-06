@@ -1643,7 +1643,7 @@ body {
     flex: 0 0 auto;
     width: 100px;
     height: 32px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
     color: white;
     border: none;
     border-radius: 6px;
@@ -1655,18 +1655,18 @@ body {
     align-items: center;
     justify-content: center;
     gap: 4px;
-    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
+    box-shadow: 0 2px 4px rgba(244, 67, 54, 0.2);
 }
 
 .deactivate-stake-btn:hover {
-    background: linear-gradient(135deg, #5a67d8 0%, #667eea 100%);
+    background: linear-gradient(135deg, #e53935 0%, #c62828 100%);
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 4px 8px rgba(244, 67, 54, 0.3);
 }
 
 .deactivate-stake-btn:active {
     transform: translateY(0);
-    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
+    box-shadow: 0 2px 4px rgba(244, 67, 54, 0.2);
 }
 
 .deactivate-stake-btn:disabled {
