@@ -2374,25 +2374,29 @@ function checkStakeAuthorities(tabId) {
     }
 }
 
-// modify: function to check and show authority match for stake accounts - add update button for stake authority
+// modify: function to check and show authority match for stake accounts - add update button for both stake and withdraw authority
 function checkAndShowStakeAuthorityMatch(card, addressEl, authority, type) {
-    // remove existing indicator and button
+    // remove existing indicator and buttons
     const existingIndicator = card.querySelector('.authority-match-indicator');
-    const existingButton = card.querySelector('.update-stake-authority-btn');
+    const existingStakeButton = card.querySelector('.update-stake-authority-btn');
+    const existingWithdrawButton = card.querySelector('.update-stake-withdraw-authority-btn');
     
     if (existingIndicator) {
         existingIndicator.remove();
     }
-    if (existingButton) {
-        existingButton.remove();
+    if (existingStakeButton) {
+        existingStakeButton.remove();
+    }
+    if (existingWithdrawButton) {
+        existingWithdrawButton.remove();
     }
     
     // remove existing classes
     card.classList.remove('authority-match', 'authority-no-match');
     
     if (authority && authority !== 'N/A' && authority !== '-') {
-        // For stake authority, add update button when user has authority
-        if (type === 'stake' && authority === connectedWalletAddress) {
+        // Add update button when user has authority (for both stake and withdraw)
+        if (authority === connectedWalletAddress) {
             // ensure address is wrapped in the appropriate container
             let addressParent = addressEl.parentElement;
             
@@ -2408,10 +2412,19 @@ function checkAndShowStakeAuthorityMatch(card, addressEl, authority, type) {
                 addressParent = addressContainer;
             }
             
-            // create Update button for stake authority
+            // create Update button based on authority type
             const updateButton = document.createElement('button');
-            updateButton.className = 'update-stake-authority-btn';
-            updateButton.onclick = () => showStakeAuthoritySelector();
+            
+            if (type === 'stake') {
+                updateButton.className = 'update-stake-authority-btn';
+                updateButton.onclick = () => showStakeAuthoritySelector();
+                console.log('Update button added to stake authority container');
+            } else if (type === 'withdraw') {
+                updateButton.className = 'update-stake-withdraw-authority-btn';
+                updateButton.onclick = () => showStakeWithdrawAuthoritySelector();
+                console.log('Update button added to stake withdraw authority container');
+            }
+            
             updateButton.innerHTML = `
                 <i class="fas fa-edit"></i>
                 Update
@@ -2419,8 +2432,6 @@ function checkAndShowStakeAuthorityMatch(card, addressEl, authority, type) {
             
             // add button to address container
             addressParent.appendChild(updateButton);
-            
-            console.log('Update button added to stake authority container');
         }
         
         const indicator = document.createElement('div');
@@ -3496,10 +3507,10 @@ async function executeStakeAuthorityUpdate(newAuthority) {
             stakePubkey: stakeAccountPubkey,
             authorizedPubkey: currentStakeAuthorityPubkey,
             newAuthorizedPubkey: newStakeAuthorityPubkey,
-            stakeAuthorizationType: { staker: {} }
+            stakeAuthorizationType: { index: 0 }  // Staker
         });
         
-        transaction.add(authorizeInstruction);
+        transaction.add(...authorizeInstruction.instructions);
         
         console.log('StakeProgram.authorize transaction created:', {
             stakeAccount: stakeAccountPubkey.toString(),
@@ -3539,6 +3550,310 @@ async function executeStakeAuthorityUpdate(newAuthority) {
         
     } catch (error) {
         console.error('Update stake authority failed:', error);
+        throw error;
+    }
+}
+
+// add: show stake withdraw authority selector
+function showStakeWithdrawAuthoritySelector() {
+    if (!walletConnected) {
+        showError('Please connect your wallet first');
+        return;
+    }
+    
+    getBackpackAccounts().then(accounts => {
+        createStakeWithdrawAuthorityModal(accounts);
+    }).catch(error => {
+        if (error.message === 'MANUAL_INPUT_REQUIRED') {
+            showManualStakeWithdrawAuthorityInputModal();
+        } else {
+            showError('Failed to retrieve wallet accounts: ' + error.message);
+        }
+    });
+}
+
+// add: create stake withdraw authority selector modal
+function createStakeWithdrawAuthorityModal(accounts) {
+    console.log('Creating stake withdraw authority modal with accounts:', accounts);
+    
+    if (!accounts || accounts.length === 0) {
+        showError('No accounts found in Backpack wallet');
+        return;
+    }
+    
+    // check if modal exists, if exists, remove it
+    const existingModal = document.getElementById('stakeWithdrawAuthoritySelectorModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const modal = document.createElement('div');
+    modal.id = 'stakeWithdrawAuthoritySelectorModal';
+    modal.className = 'modal';
+    
+    // generate accounts list HTML
+    const accountsHTML = accounts.map(account => {
+        const showSelectButton = !account.isActive;
+        
+        return `
+            <div class="account-item" data-public-key="${account.publicKey}">
+                <div class="account-info">
+                    <div class="account-name">
+                        ${account.username}
+                        ${account.isActive ? '<span class="active-badge">Current</span>' : ''}
+                    </div>
+                    <div class="account-address">${account.publicKey}</div>
+                </div>
+                ${showSelectButton ? 
+                    `<button class="select-account-btn" onclick="selectNewStakeWithdrawAuthority('${account.publicKey}', '${account.username}')">
+                        Select
+                    </button>` : 
+                    `<span class="current-indicator">
+                        <i class="fas fa-check"></i>
+                        Current
+                    </span>`
+                }
+            </div>
+        `;
+    }).join('');
+    
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-users"></i> Select New Stake Withdraw Authority</h3>
+                <button class="modal-close" onclick="hideStakeWithdrawAuthoritySelectorModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 16px; color: #666; font-size: 14px;">
+                    Choose which wallet address should become the new withdraw authority for this stake account:
+                </p>
+                <div class="account-list">
+                    ${accountsHTML}
+                </div>
+                <div class="modal-note">
+                    <i class="fas fa-info-circle"></i>
+                    <small>This will create a transaction to update the stake withdraw authority. You'll need to sign the transaction with the current withdraw authority.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="hideStakeWithdrawAuthoritySelectorModal()">Cancel</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    modal.classList.remove('hidden');
+}
+
+// add: hide stake withdraw authority selector modal
+function hideStakeWithdrawAuthoritySelectorModal() {
+    const modal = document.getElementById('stakeWithdrawAuthoritySelectorModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        setTimeout(() => modal.remove(), 300);
+    }
+}
+
+// add: select new stake withdraw authority
+async function selectNewStakeWithdrawAuthority(newAuthority, accountName) {
+    hideStakeWithdrawAuthoritySelectorModal();
+    
+    try {
+        await executeStakeWithdrawAuthorityUpdate(newAuthority);
+    } catch (error) {
+        showError('Failed to update stake withdraw authority: ' + error.message);
+    }
+}
+
+// add: manual stake withdraw authority input modal
+function showManualStakeWithdrawAuthorityInputModal() {
+    const existingModal = document.getElementById('manualStakeWithdrawAuthorityModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const modal = document.createElement('div');
+    modal.id = 'manualStakeWithdrawAuthorityModal';
+    modal.className = 'modal';
+    
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-edit"></i> Update Stake Withdraw Authority</h3>
+                <button class="modal-close" onclick="hideManualStakeWithdrawAuthorityModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-note" style="margin-bottom: 16px; background: #e3f2fd; color: #1565c0; border-left: 4px solid #2196f3;">
+                    <i class="fas fa-info-circle"></i>
+                    <p><strong>Multiple account selection not available</strong><br>
+                    Please enter the new stake withdraw authority address manually.</p>
+                </div>
+                
+                <div class="form-group">
+                    <label for="manualStakeWithdrawAuthority">New Stake Withdraw Authority Address:</label>
+                    <input 
+                        type="text" 
+                        id="manualStakeWithdrawAuthority" 
+                        placeholder="Enter wallet address..." 
+                        autocomplete="off"
+                        style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: monospace; font-size: 14px;"
+                    >
+                </div>
+                
+                <div class="current-wallet-info" style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin: 12px 0;">
+                    <strong>Current Connected Wallet:</strong><br>
+                    <span style="font-family: monospace; color: #666; word-break: break-all;">${connectedWalletAddress}</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="hideManualStakeWithdrawAuthorityModal()">Cancel</button>
+                <button class="btn-confirm" onclick="processManualStakeWithdrawAuthorityInput()">Update Authority</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    modal.classList.remove('hidden');
+    
+    setTimeout(() => {
+        document.getElementById('manualStakeWithdrawAuthority').focus();
+    }, 100);
+}
+
+// add: hide manual stake withdraw authority input modal
+function hideManualStakeWithdrawAuthorityModal() {
+    const modal = document.getElementById('manualStakeWithdrawAuthorityModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        setTimeout(() => modal.remove(), 300);
+    }
+}
+
+// add: process manual stake withdraw authority input
+function processManualStakeWithdrawAuthorityInput() {
+    const addressInput = document.getElementById('manualStakeWithdrawAuthority');
+    const newAddress = addressInput.value.trim();
+    
+    if (!newAddress) {
+        showError('Please enter a valid wallet address');
+        return;
+    }
+    
+    // Validate address format
+    try {
+        new solanaWeb3.PublicKey(newAddress);
+    } catch (error) {
+        showError('Invalid wallet address format');
+        return;
+    }
+    
+    // Check if it's the same as current address
+    if (newAddress === connectedWalletAddress) {
+        showError('New address cannot be the same as current address');
+        return;
+    }
+    
+    hideManualStakeWithdrawAuthorityModal();
+    
+    // Confirm the update
+    if (confirm(`Are you sure you want to update the stake withdraw authority to:\n\n${newAddress}\n\nPlease verify this address is correct.`)) {
+        selectNewStakeWithdrawAuthority(newAddress, 'Manual Input');
+    }
+}
+
+// add: execute stake withdraw authority update transaction
+async function executeStakeWithdrawAuthorityUpdate(newAuthority) {
+    if (!walletConnected || !wallet) {
+        throw new Error('Wallet not connected');
+    }
+    
+    // Get current stake account information
+    const currentTabId = activeTab;
+    if (!currentTabId || !currentTabId.startsWith('stake-')) {
+        throw new Error('No stake tab is currently active');
+    }
+    
+    const stakeIndex = parseInt(currentTabId.replace('stake-', ''));
+    if (!currentStakeAccounts || !currentStakeAccounts[stakeIndex]) {
+        throw new Error('No stake account data found');
+    }
+    
+    const currentStakeAccount = currentStakeAccounts[stakeIndex];
+    const stakeAccountAddress = currentStakeAccount.pubkey;
+    const currentWithdrawAuthority = currentStakeAccount.data.meta?.authorized?.withdrawer;
+    
+    if (currentWithdrawAuthority !== connectedWalletAddress) {
+        throw new Error('You must be the current stake withdraw authority to update it');
+    }
+    
+    showInfo('Creating stake withdraw authority update transaction...', true);
+    
+    try {
+        const stakeAccountPubkey = new solanaWeb3.PublicKey(stakeAccountAddress);
+        const currentWithdrawAuthorityPubkey = new solanaWeb3.PublicKey(currentWithdrawAuthority);
+        const newWithdrawAuthorityPubkey = new solanaWeb3.PublicKey(newAuthority);
+        
+        // get latest blockhash
+        const { blockhash } = await connection.getLatestBlockhash('finalized');
+        
+        // create transaction
+        const transaction = new solanaWeb3.Transaction({
+            recentBlockhash: blockhash,
+            feePayer: currentWithdrawAuthorityPubkey,
+        });
+        
+        // use StakeProgram.authorize to update stake withdraw authority
+        const authorizeInstruction = solanaWeb3.StakeProgram.authorize({
+            stakePubkey: stakeAccountPubkey,
+            authorizedPubkey: currentWithdrawAuthorityPubkey,
+            newAuthorizedPubkey: newWithdrawAuthorityPubkey,
+            stakeAuthorizationType: { index: 1 }  // Withdrawer
+        });
+        
+        transaction.add(...authorizeInstruction.instructions);
+        
+        console.log('StakeProgram.authorize (withdraw) transaction created:', {
+            stakeAccount: stakeAccountPubkey.toString(),
+            currentWithdrawAuthority: currentWithdrawAuthorityPubkey.toString(),
+            newWithdrawAuthority: newWithdrawAuthorityPubkey.toString(),
+            authorizationType: 'StakeAuthorizationType.Withdrawer'
+        });
+        
+        // sign and send transaction
+        const signedTransaction = await wallet.signTransaction(transaction);
+        const signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+            skipPreflight: false,
+            preflightCommitment: 'confirmed'
+        });
+        
+        console.log('Transaction sent:', signature);
+        showInfo('Transaction sent! Waiting for confirmation...', true);
+        
+        // wait for confirmation
+        await connection.confirmTransaction(signature, 'confirmed');
+        
+        // update UI stake withdraw authority display for current active tab
+        const tabContent = document.getElementById(currentTabId);
+        if (tabContent) {
+            const stakeWithdrawAuthorityCard = tabContent.querySelector('.stake-withdraw-authority-card');
+            const stakeWithdrawAuthorityEl = tabContent.querySelector('.stake-withdraw-authority-address');
+            if (stakeWithdrawAuthorityEl && stakeWithdrawAuthorityCard) {
+                // update displayed address
+                stakeWithdrawAuthorityEl.textContent = newAuthority;
+                // re-check authority match status
+                checkAndShowStakeAuthorityMatch(stakeWithdrawAuthorityCard, stakeWithdrawAuthorityEl, newAuthority, 'withdraw');
+            }
+        }
+        
+        const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+        showSuccess(`✅ Stake withdraw authority updated successfully! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+        
+    } catch (error) {
+        console.error('Update stake withdraw authority failed:', error);
         throw error;
     }
 }
