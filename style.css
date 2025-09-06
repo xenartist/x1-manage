@@ -1607,21 +1607,23 @@ body {
 
 
 
-/* 只通过图标颜色区分状态 */
+/* Only differentiate status through icon colors */
 .active-stake-card .info-header i {
-    color: #2e7d32; /* 绿色 */
+    color: #2e7d32; /* green */
 }
 
 .deactivating-stake-card .info-header i {
-    color: #ef6c00; /* 橙色 */
+    color: #ef6c00; /* orange */
 }
 
 .inactive-stake-card .info-header i {
-    color: #757575; /* 灰色 */
+    color: #757575; /* gray */
 }
 
-/* Active Stake 卡片布局 - 按照第一步记录的设计 */
-.active-stake-card .info-content {
+/* Active Stake card layout */
+.active-stake-card .info-content,
+.deactivating-stake-card .info-content,
+.inactive-stake-card .info-content {
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
@@ -1629,12 +1631,14 @@ body {
     gap: 12px !important;
 }
 
-.active-stake-card .number {
+.active-stake-card .number,
+.deactivating-stake-card .number,
+.inactive-stake-card .number {
     flex: 1;
     min-width: 0;
 }
 
-/* Deactivate 按钮样式 - 参考 withdraw 按钮设计 */
+/* Deactivate button style */
 .deactivate-stake-btn {
     flex: 0 0 auto;
     width: 100px;
@@ -1677,7 +1681,7 @@ body {
     font-size: 10px;
 }
 
-/* 状态描述样式 */
+/* Status description style */
 .status-description {
     width: 100%;
     margin-top: 8px;
@@ -1687,7 +1691,7 @@ body {
     line-height: 1.4;
 }
 
-/* Tab 状态指示器 */
+/* Tab status indicator */
 .status-indicator.deactivating {
     background: rgba(239, 108, 0, 0.2);
     color: #ef6c00;
@@ -1706,7 +1710,7 @@ body {
     margin-left: 4px;
 }
 
-/* 移动端响应式 */
+/* Mobile responsive */
 @media (max-width: 768px) {
     .active-stake-card .info-content {
         flex-direction: column;

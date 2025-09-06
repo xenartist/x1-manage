@@ -2080,10 +2080,10 @@ async function createStakeTab(stakeAccount, index, currentEpoch = null) {
             </div>
 
             <!-- Combined Active/Deactivating/Inactive Stake with Status -->
-            <div class="info-card active-stake-card">
+            <div class="info-card ${stakeCardClass}">
                 <div class="info-header">
-                    <i class="fas fa-check-circle"></i>
-                    <h3>Active Stake</h3>
+                    <i class="${stakeCardIcon}"></i>
+                    <h3>${stakeCardTitle}</h3>
                 </div>
                 <div class="info-content">
                     <span class="number">${(activeStake / solanaWeb3.LAMPORTS_PER_SOL).toFixed(6)} SOL</span>
