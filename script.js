@@ -671,10 +671,10 @@ function formatCommission(commission) {
     return `${commission}%`;
 }
 
-// Format balance with SOL units
+// Format balance with XNT units
 function formatBalance(balance) {
     if (balance === 'N/A' || balance === 'Unknown' || balance === null || balance === undefined) return 'N/A';
-    return `${balance.toFixed(4)} SOL`;
+    return `${balance.toFixed(4)} XNT`;
 }
 
 // UI helper functions
@@ -757,7 +757,7 @@ function showWithdrawModal() {
     
     // Get current balance
     const balanceText = accountBalanceEl.textContent;
-    const currentBalance = parseFloat(balanceText.replace(' SOL', ''));
+    const currentBalance = parseFloat(balanceText.replace(' XNT', ''));
     
     if (isNaN(currentBalance) || currentBalance <= 0) {
         showError('No balance available for withdrawal');
@@ -795,7 +795,7 @@ function addMaxAmountButton() {
     maxBtn.textContent = 'Max';
     maxBtn.onclick = () => {
         const availableBalance = parseFloat(availableBalanceEl.textContent);
-        // Leave a small amount for transaction fees (0.001 SOL)
+        // Leave a small amount for transaction fees (0.001 XNT)
         const maxWithdrawAmount = Math.max(0, availableBalance - 0.001);
         withdrawAmountInput.value = maxWithdrawAmount.toFixed(6);
     };
@@ -845,7 +845,7 @@ async function executeWithdraw() {
         confirmBtn.disabled = true;
         confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
 
-        // Convert SOL to lamports
+        // Convert XNT to lamports
         const lamports = Math.floor(amount * solanaWeb3.LAMPORTS_PER_SOL);
         
         // Get current vote account public key
@@ -985,7 +985,7 @@ async function executeWithdraw() {
                     const expectedDecrease = amount;
                     const actualDecrease = originalBalance - currentBalanceInSol;
                     
-                    if (Math.abs(actualDecrease - expectedDecrease) < 0.01) { // Allow 0.01 SOL tolerance for fees
+                    if (Math.abs(actualDecrease - expectedDecrease) < 0.01) { // Allow 0.01 XNT tolerance for fees
                         console.log('Balance decreased as expected, transaction likely successful');
                         
                         // Update the displayed balance
@@ -1991,7 +1991,7 @@ async function createStakeTab(stakeAccount, index, currentEpoch = null) {
     tabBtn.innerHTML = `
         <i class="fas fa-layer-group"></i>
         <span class="stake-rank">#${index + 1}</span>
-        <span class="stake-amount">${formatAmount(solAmount)} SOL</span>
+        <span class="stake-amount">${formatAmount(solAmount)} XNT</span>
         ${authorityIndicator}
         ${statusIndicator}
     `;
@@ -2077,7 +2077,7 @@ async function createStakeTab(stakeAccount, index, currentEpoch = null) {
                     <h3>Account Balance</h3>
                 </div>
                 <div class="info-content">
-                    <span class="balance">${totalBalance.toFixed(6)} SOL</span>
+                    <span class="balance">${totalBalance.toFixed(6)} XNT</span>
                 </div>
             </div>
 
@@ -2088,7 +2088,7 @@ async function createStakeTab(stakeAccount, index, currentEpoch = null) {
                     <h3>Delegated Stake</h3>
                 </div>
                 <div class="info-content">
-                    <span class="number">${solAmount.toFixed(6)} SOL</span>
+                    <span class="number">${solAmount.toFixed(6)} XNT</span>
                 </div>
             </div>
 
@@ -2099,7 +2099,7 @@ async function createStakeTab(stakeAccount, index, currentEpoch = null) {
                     <h3>${stakeCardTitle}</h3>
                 </div>
                 <div class="info-content">
-                    <span class="number">${(activeStake / solanaWeb3.LAMPORTS_PER_SOL).toFixed(6)} SOL</span>
+                    <span class="number">${(activeStake / solanaWeb3.LAMPORTS_PER_SOL).toFixed(6)} XNT</span>
                     ${showDeactivateButton ? 
                         `<button class="deactivate-stake-btn" onclick="showDeactivateStakeModal('${stakePubkey}', ${(activeStake / solanaWeb3.LAMPORTS_PER_SOL).toFixed(6)})">
                             <i class="fas fa-power-off"></i>
@@ -2314,7 +2314,7 @@ async function createStakeTabs(stakeAccounts, currentEpoch = null) {
         );
         const amount = (stake.data.stake?.delegation?.stake || stake.lamports) / solanaWeb3.LAMPORTS_PER_SOL;
         
-        console.log(`UI Tab ${index + 1}: ${stake.pubkey.slice(0,8)}... Authority: ${hasAuthority} Amount: ${amount.toFixed(2)} SOL`);
+        console.log(`UI Tab ${index + 1}: ${stake.pubkey.slice(0,8)}... Authority: ${hasAuthority} Amount: ${amount.toFixed(2)} XNT`);
     });
     
     // create tabs for each stake account in the sorted order
@@ -2771,7 +2771,7 @@ function showDeactivateStakeModal(stakeAccountAddress, activeStakeAmount) {
                 <div class="stake-info" style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin: 12px 0;">
                     <strong>Stake Account:</strong><br>
                     <span style="font-family: monospace; color: #666; word-break: break-all;">${stakeAccountAddress}</span><br><br>
-                    <strong>Active Stake Amount:</strong> ${activeStakeAmount} SOL
+                    <strong>Active Stake Amount:</strong> ${activeStakeAmount} XNT
                 </div>
                 
                 <div class="modal-note">
