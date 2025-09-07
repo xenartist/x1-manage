@@ -2096,13 +2096,20 @@ async function createStakeTab(stakeAccount, index, currentEpoch = null) {
             </div>
 
             <!-- Delegated Stake -->
-            <div class="info-card">
+            <div class="info-card${(delegatedStake === 0 || stakeStatus.text === 'Inactive') && activeStake === 0 && hasStakeAuthority ? ' balance-card' : ''}">
                 <div class="info-header">
                     <i class="fas fa-coins"></i>
                     <h3>Delegated Stake</h3>
                 </div>
                 <div class="info-content">
-                    <span class="number">${solAmount.toFixed(6)} XNT</span>
+                    <span class="balance">${solAmount.toFixed(6)} XNT</span>
+                    ${(delegatedStake === 0 || stakeStatus.text === 'Inactive') && activeStake === 0 && hasStakeAuthority ? 
+                        `<button class="delegate-stake-btn" onclick="showDelegateStakeModal('${stakePubkey}', ${totalBalance.toFixed(6)})">
+                            <i class="fas fa-arrow-up"></i>
+                            Delegate
+                        </button>` : 
+                        ''
+                    }
                 </div>
             </div>
 
@@ -3855,5 +3862,158 @@ async function executeStakeWithdrawAuthorityUpdate(newAuthority) {
     } catch (error) {
         console.error('Update stake withdraw authority failed:', error);
         throw error;
+    }
+}
+
+// show delegate stake modal
+function showDelegateStakeModal(stakeAccountAddress, availableBalance) {
+    const existingModal = document.getElementById('delegateStakeModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const modal = document.createElement('div');
+    modal.id = 'delegateStakeModal';
+    modal.className = 'modal';
+    
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-arrow-up"></i> Delegate Stake</h3>
+                <button class="modal-close" onclick="hideDelegateStakeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-note" style="margin-bottom: 16px; background: #e8f5e8; color: #2e7d32; border-left: 4px solid #4caf50;">
+                    <i class="fas fa-info-circle"></i>
+                    <p><strong>Delegate Stake</strong><br>
+                    Delegate your stake to a validator to start earning rewards.</p>
+                </div>
+                
+                <div class="stake-account-info" style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin: 12px 0;">
+                    <strong>Stake Account:</strong><br>
+                    <span style="font-family: monospace; color: #666; word-break: break-all;">${stakeAccountAddress}</span><br><br>
+                    <strong>Available Balance:</strong> ${availableBalance} XNT
+                </div>
+                
+                <div class="form-group">
+                    <label for="delegateVoteAccount">Vote Account to Delegate:</label>
+                    <input type="text" id="delegateVoteAccount" placeholder="Enter vote account address..." autocomplete="off" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: monospace; font-size: 14px;">
+                </div>
+                
+                <div class="modal-note">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <small><strong>Important:</strong> Delegation will use the entire stake account balance. Once delegated, your stake will start earning rewards but will be locked until you deactivate the delegation.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="hideDelegateStakeModal()">Cancel</button>
+                <button class="btn-confirm" onclick="executeStakeDelegate('${stakeAccountAddress}')">Delegate</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    modal.classList.remove('hidden');
+    
+    // fill current vote account if exists
+    const currentVoteAccount = document.getElementById('voteAccount').value.trim();
+    if (currentVoteAccount) {
+        document.getElementById('delegateVoteAccount').value = currentVoteAccount;
+    }
+    
+    setTimeout(() => {
+        document.getElementById('delegateVoteAccount').focus();
+    }, 100);
+}
+
+// hide delegate stake modal
+function hideDelegateStakeModal() {
+    const modal = document.getElementById('delegateStakeModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        setTimeout(() => modal.remove(), 300);
+    }
+}
+
+// execute stake delegate transaction
+async function executeStakeDelegate(stakeAccountAddress) {
+    if (!walletConnected || !wallet) {
+        showError('Wallet not connected');
+        return;
+    }
+    
+    const voteAccountAddress = document.getElementById('delegateVoteAccount').value.trim();
+
+    if (!voteAccountAddress) {
+        showError('Please enter a vote account address');
+        return;
+    }
+    
+    hideDelegateStakeModal();
+    
+    // Confirm the operation
+    if (!confirm(`Are you sure you want to delegate stake account:\n\n${stakeAccountAddress}\n\nTo vote account: ${voteAccountAddress}\n\nThis will delegate the entire stake account balance.`)) {
+        return;
+    }
+    
+    showInfo('Creating stake delegate transaction...', true);
+    
+    try {
+        // Create public keys
+        const stakeAccountPubkey = new solanaWeb3.PublicKey(stakeAccountAddress);
+        const voteAccountPubkey = new solanaWeb3.PublicKey(voteAccountAddress);
+        const stakeAuthorityPubkey = new solanaWeb3.PublicKey(connectedWalletAddress);
+        
+        // Get latest blockhash
+        const { blockhash } = await connection.getLatestBlockhash('finalized');
+        
+        // Create transaction
+        const transaction = new solanaWeb3.Transaction({
+            recentBlockhash: blockhash,
+            feePayer: stakeAuthorityPubkey,
+        });
+        
+        // Create delegate instruction using StakeProgram
+        const delegateTransaction = solanaWeb3.StakeProgram.delegate({
+            stakePubkey: stakeAccountPubkey,
+            authorizedPubkey: stakeAuthorityPubkey,
+            votePubkey: voteAccountPubkey,
+        });
+        
+        // Add delegate instruction to transaction
+        transaction.add(...delegateTransaction.instructions);
+        
+        console.log('Stake delegate transaction created:', {
+            stakeAccount: stakeAccountPubkey.toString(),
+            voteAccount: voteAccountPubkey.toString(),
+            stakeAuthority: stakeAuthorityPubkey.toString()
+        });
+        
+        // Sign and send transaction
+        const signedTransaction = await wallet.signTransaction(transaction);
+        const signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+            skipPreflight: false,
+            preflightCommitment: 'confirmed'
+        });
+        
+        console.log('Transaction sent:', signature);
+        showInfo('Transaction sent! Waiting for confirmation...', true);
+        
+        // Wait for confirmation
+        await connection.confirmTransaction(signature, 'confirmed');
+        
+        const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+        showSuccess(`✅ Stake delegated successfully! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+        
+        // suggest user to refresh to see the latest status
+        setTimeout(() => {
+            showInfo('Delegation successful! You may refresh the page to see the updated stake status.');
+        }, 3000);
+        
+    } catch (error) {
+        console.error('Failed to delegate stake:', error);
+        showError('Failed to delegate stake: ' + error.message);
     }
 }
