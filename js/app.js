@@ -265,6 +265,9 @@ async function connectWallet() {
                 updateWalletUI();
                 console.log('✅ Backpack wallet already connected:', connectedWalletAddress);
                 
+                // balance updates logic
+                startBalanceUpdates();
+                
                 // Notify manage account page about wallet connection
                 if (typeof onWalletConnected === 'function') {
                     onWalletConnected();
@@ -306,6 +309,9 @@ async function connectWallet() {
                     connectedWalletAddress = response.publicKey.toString();
                     updateWalletUI();
                     console.log('✅ Backpack wallet connected:', connectedWalletAddress);
+                    
+                    // balance updates logic
+                    startBalanceUpdates();
                     
                     // Notify manage account page about wallet connection
                     if (typeof onWalletConnected === 'function') {
@@ -372,6 +378,10 @@ async function disconnectWallet() {
         }
         walletConnected = false;
         connectedWalletAddress = null;
+        
+        // stop balance updates logic
+        stopBalanceUpdates();
+        
         updateWalletUI();
         // Notify manage account page about wallet disconnect
         if (typeof onWalletDisconnected === 'function') {
@@ -383,6 +393,10 @@ async function disconnectWallet() {
         // Force disconnect anyway
         walletConnected = false;
         connectedWalletAddress = null;
+        
+        // stop balance updates logic
+        stopBalanceUpdates();
+        
         updateWalletUI();
         if (typeof onWalletDisconnected === 'function') {
             onWalletDisconnected();
@@ -818,18 +832,4 @@ function stopBalanceUpdates() {
         clearInterval(balanceUpdateInterval);
         balanceUpdateInterval = null;
     }
-}
-
-// start balance updates when connecting wallet
-async function connectWallet() {
-    // start balance updates when connecting wallet
-    if (walletConnected) {
-        startBalanceUpdates();
-    }
-}
-
-// stop balance updates when disconnecting wallet
-function disconnectWallet() {
-    // stop balance updates
-    stopBalanceUpdates();
 }
