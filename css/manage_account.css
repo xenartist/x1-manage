@@ -735,6 +735,31 @@
     background: #5a67d8;
 }
 
+/* Authority tab highlighting */
+.tab-btn.authority-tab {
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%);
+    border: 2px solid rgba(76, 175, 80, 0.3);
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
+}
+
+.tab-btn.authority-tab:hover {
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.15) 0%, rgba(76, 175, 80, 0.1) 100%);
+    border-color: rgba(76, 175, 80, 0.4);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.25);
+    transform: translateY(-1px);
+}
+
+.tab-btn.authority-tab.active {
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.9) 0%, rgba(69, 160, 73, 0.9) 100%);
+    border-color: #4CAF50;
+    color: white;
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+.tab-btn.authority-tab.active .authority-indicator i {
+    color: rgba(255, 255, 255, 0.9);
+}
+
 /* Responsive Design for Manage Account */
 @media (max-width: 768px) {
     .info-grid {

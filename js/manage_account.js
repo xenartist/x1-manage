@@ -685,7 +685,7 @@ async function createStakeTab(stakeAccount, index, currentEpoch = null) {
     
     // create tab button with authority indicator and status
     const tabBtn = document.createElement('button');
-    tabBtn.className = 'tab-btn';
+    tabBtn.className = hasAnyAuthority ? 'tab-btn authority-tab' : 'tab-btn';
     tabBtn.setAttribute('data-tab-id', tabId);
     tabBtn.onclick = () => switchTab(tabId);
     
