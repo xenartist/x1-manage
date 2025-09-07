@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>X1 Validator Management</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="css/base.css?v=2025090702">
+    <link rel="stylesheet" href="css/base.css?v=2025090704">
     <link rel="stylesheet" href="css/manage_account.css?v=2025090702">
     <!-- Add Solana Web3.js SDK -->
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
@@ -20,11 +20,50 @@
             <div class="header-right">
                 <!-- RPC Endpoint selector -->
                 <div class="rpc-selector">
-                    <div class="select-wrapper">
-                        <i class="fas fa-server"></i>
-                        <select id="rpcEndpoint" class="rpc-select">
-                            <option value="https://rpc.testnet.x1.xyz">X1 Testnet (Default)</option>
-                        </select>
+                    <div class="rpc-dropdown">
+                        <div class="rpc-selected" id="rpcSelected">
+                            <i class="fas fa-server"></i>
+                            <span id="selectedRpcText">X1 Testnet (Default)</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        
+                        <div class="rpc-options hidden" id="rpcOptions">
+                            <!-- 预设选项 -->
+                            <div class="rpc-option" data-value="https://rpc.testnet.x1.xyz">
+                                <i class="fas fa-server"></i>
+                                X1 Testnet (Default)
+                            </div>
+                            
+                            <!-- Custom RPC 选项 - 根据状态动态显示 -->
+                            <div class="rpc-option custom-rpc-option">
+                                <!-- 未设置时显示输入界面 -->
+                                <div id="customRpcInput" class="custom-rpc-input-section">
+                                    <div class="custom-rpc-header">
+                                        <i class="fas fa-link"></i>
+                                        Custom RPC
+                                    </div>
+                                    <div class="custom-rpc-controls">
+                                        <input 
+                                            type="text" 
+                                            id="customRpcUrl" 
+                                            placeholder="Enter RPC URL..."
+                                            class="custom-url-input"
+                                            autocomplete="off"
+                                        >
+                                        <button id="applyCustomRpc" class="apply-btn">Apply</button>
+                                    </div>
+                                </div>
+                                
+                                <!-- when set, display url and edit button -->
+                                <div id="customRpcDisplay" class="custom-rpc-display-section hidden">
+                                    <div class="custom-rpc-info" data-value="" id="customRpcSelectOption">
+                                        <i class="fas fa-link"></i>
+                                        <span id="customRpcUrlText">Custom: </span>
+                                    </div>
+                                    <button id="editCustomRpc" class="edit-btn">Edit</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -215,7 +254,7 @@
                 <div id="new-account" class="page">
                     <div class="page-header">
                         <h2><i class="fas fa-plus-circle"></i> Generate New Account</h2>
-                        <p>Generate new Solana accounts for validators, vote accounts, stake accounts, and more</p>
+                        <p>Generate new accounts for validators identity accounts, vote accounts, stake accounts, and more</p>
                     </div>
                     <div class="coming-soon">
                         <i class="fas fa-hammer"></i>
@@ -262,7 +301,7 @@
     </div>
 
     <!-- Scripts -->
-    <script src="js/app.js?v=2025090702"></script>
+    <script src="js/app.js?v=2025090705"></script>
     <script src="js/manage_account.js?v=2025090702"></script>
 </body>
 </html>

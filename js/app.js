@@ -11,7 +11,6 @@ const connectWalletBtn = document.getElementById('connectWallet');
 const walletInfo = document.getElementById('walletInfo');
 const walletAddress = document.getElementById('walletAddress');
 const disconnectWalletBtn = document.getElementById('disconnectWallet');
-const rpcEndpointSelect = document.getElementById('rpcEndpoint');
 
 // Message elements
 const loadingSpinner = document.getElementById('loadingSpinner');
@@ -44,8 +43,7 @@ window.addEventListener('load', function() {
 
 // Initialize the application
 function initializeApp() {
-    // Initialize RPC connection
-    currentRpcEndpoint = rpcEndpointSelect.value;
+    // Initialize RPC connection with default value
     initializeConnection();
     
     // Initialize navigation
@@ -53,10 +51,12 @@ function initializeApp() {
     
     // Single wallet check with appropriate delay
     setTimeout(() => {
-        if (!walletDetected) {
-            checkBackpackWallet();
-        }
-    }, 500);
+        checkBackpackWallet().then(detected => {
+            if (detected) {
+                setTimeout(connectWallet, 500);
+            }
+        });
+    }, 1000);
     
     console.log('X1 Validator Management Suite initialized');
 }
@@ -71,12 +71,6 @@ function initializeConnection() {
         showError('Failed to connect to RPC endpoint');
     }
 }
-
-// RPC endpoint change handler
-rpcEndpointSelect.addEventListener('change', function() {
-    currentRpcEndpoint = this.value;
-    initializeConnection();
-});
 
 // Navigation System
 function initializeNavigation() {
@@ -124,7 +118,7 @@ function switchPage(pageId) {
 function checkBackpackWallet() {
     if (walletDetected) {
         console.log('Wallet already detected, skipping...');
-        return;
+        return Promise.resolve(true); // Indicate success
     }
 
     console.log('Checking for Backpack wallet...');
@@ -167,6 +161,7 @@ function checkBackpackWallet() {
         setTimeout(() => {
             tryAutoConnect();
         }, 1000);
+        return Promise.resolve(true); // Indicate success
     } else {
         console.log('❌ Backpack wallet not found');
         
@@ -185,8 +180,15 @@ function checkBackpackWallet() {
                 console.log('Max detection retries reached');
                 clearInterval(detectInterval);
                 showWalletNotFound();
+                return Promise.resolve(false); // Indicate failure
             }
         }, 2000); // Check every 2 seconds
+        return new Promise(resolve => {
+            setTimeout(() => {
+                clearInterval(detectInterval);
+                resolve(false); // Indicate failure after retries
+            }, maxDetectRetries * 2000 + 1000); // Total time for retries + final check
+        });
     }
 }
 
@@ -507,3 +509,238 @@ function formatBalance(balance) {
 }
 
 console.log('App.js loaded successfully');
+
+// Custom RPC functionality
+let savedCustomRpc = null;
+let currentSelectedRpc = 'https://rpc.testnet.x1.xyz';
+
+function initializeRpcSelector() {
+    const rpcSelected = document.getElementById('rpcSelected');
+    const rpcOptions = document.getElementById('rpcOptions');
+    const selectedRpcText = document.getElementById('selectedRpcText');
+    const customRpcUrl = document.getElementById('customRpcUrl');
+    const applyCustomRpcBtn = document.getElementById('applyCustomRpc');
+    const editCustomRpcBtn = document.getElementById('editCustomRpc');
+    
+    if (!rpcSelected || !rpcOptions) {
+        console.warn('RPC selector elements not found');
+        return;
+    }
+    
+    // load saved custom rpc
+    loadSavedCustomRpc();
+    updateCustomRpcDisplay();
+    
+    // click selector to open/close dropdown
+    rpcSelected.addEventListener('click', function() {
+        toggleRpcDropdown();
+    });
+    
+    // click outside to close dropdown
+    document.addEventListener('click', function(e) {
+        if (!rpcSelected.contains(e.target) && !rpcOptions.contains(e.target)) {
+            closeRpcDropdown();
+        }
+    });
+    
+    // regular options click
+    const regularOptions = rpcOptions.querySelectorAll('.rpc-option[data-value]');
+    regularOptions.forEach(option => {
+        option.addEventListener('click', function() {
+            selectRpc(this.dataset.value, this.textContent.trim());
+        });
+    });
+    
+    // Custom RPC Apply
+    if (applyCustomRpcBtn) {
+        applyCustomRpcBtn.addEventListener('click', applyCustomRpc);
+    }
+    
+    // Custom RPC Edit
+    if (editCustomRpcBtn) {
+        editCustomRpcBtn.addEventListener('click', editCustomRpc);
+    }
+    
+    // custom rpc url select (when set)
+    const customRpcSelectOption = document.getElementById('customRpcSelectOption');
+    if (customRpcSelectOption) {
+        customRpcSelectOption.addEventListener('click', function() {
+            if (savedCustomRpc) {
+                selectRpc(savedCustomRpc, `Custom: ${savedCustomRpc}`);
+            }
+        });
+    }
+    
+    // Enter key apply
+    if (customRpcUrl) {
+        customRpcUrl.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                applyCustomRpc();
+            }
+        });
+    }
+}
+
+function loadSavedCustomRpc() {
+    const saved = localStorage.getItem('customRpcUrl');
+    if (saved) {
+        savedCustomRpc = saved;
+        console.log('Loaded saved custom RPC:', saved);
+    }
+}
+
+function saveCustomRpc(url) {
+    savedCustomRpc = url;
+    localStorage.setItem('customRpcUrl', url);
+    console.log('Saved custom RPC:', url);
+}
+
+function updateCustomRpcDisplay() {
+    const customRpcInput = document.getElementById('customRpcInput');
+    const customRpcDisplay = document.getElementById('customRpcDisplay');
+    const customRpcUrlText = document.getElementById('customRpcUrlText');
+    const customRpcSelectOption = document.getElementById('customRpcSelectOption');
+    
+    if (savedCustomRpc) {
+        // display set rpc
+        if (customRpcInput) customRpcInput.classList.add('hidden');
+        if (customRpcDisplay) customRpcDisplay.classList.remove('hidden');
+        if (customRpcUrlText) customRpcUrlText.textContent = `Custom: ${savedCustomRpc}`;
+        if (customRpcSelectOption) customRpcSelectOption.dataset.value = savedCustomRpc;
+    } else {
+        // display input section
+        if (customRpcInput) customRpcInput.classList.remove('hidden');
+        if (customRpcDisplay) customRpcDisplay.classList.add('hidden');
+    }
+}
+
+function toggleRpcDropdown() {
+    const rpcSelected = document.getElementById('rpcSelected');
+    const rpcOptions = document.getElementById('rpcOptions');
+    
+    if (rpcOptions.classList.contains('hidden')) {
+        // when opening dropdown, check and update custom rpc display status
+        updateCustomRpcDisplay();
+        
+        rpcOptions.classList.remove('hidden');
+        rpcSelected.classList.add('open');
+    } else {
+        closeRpcDropdown();
+    }
+}
+
+function closeRpcDropdown() {
+    const rpcSelected = document.getElementById('rpcSelected');
+    const rpcOptions = document.getElementById('rpcOptions');
+    
+    rpcOptions.classList.add('hidden');
+    rpcSelected.classList.remove('open');
+}
+
+function selectRpc(url, displayText) {
+    const selectedRpcText = document.getElementById('selectedRpcText');
+    
+    currentSelectedRpc = url;
+    if (selectedRpcText) {
+        selectedRpcText.textContent = displayText;
+    }
+    
+    closeRpcDropdown();
+    updateRpcConnection(url);
+}
+
+function applyCustomRpc() {
+    const customRpcUrl = document.getElementById('customRpcUrl');
+    
+    if (!customRpcUrl) return;
+    
+    const url = customRpcUrl.value.trim();
+    
+    if (!url) {
+        showError('Please enter a valid RPC URL');
+        return;
+    }
+    
+    try {
+        new URL(url);
+    } catch (error) {
+        showError('Please enter a valid RPC URL');
+        return;
+    }
+    
+    // save and update display
+    saveCustomRpc(url);
+    updateCustomRpcDisplay();
+    
+    // select this rpc
+    selectRpc(url, `Custom: ${url}`);
+    
+    showInfo(`✅ Connected to custom RPC: ${url}`);
+    setTimeout(() => hideInfo(), 3000);
+}
+
+function editCustomRpc() {
+    const customRpcUrl = document.getElementById('customRpcUrl');
+    
+    // pre-fill current value
+    if (customRpcUrl && savedCustomRpc) {
+        customRpcUrl.value = savedCustomRpc;
+    }
+    
+    // switch to input mode
+    updateCustomRpcDisplay();
+    
+    // re-display input section
+    const customRpcInput = document.getElementById('customRpcInput');
+    const customRpcDisplay = document.getElementById('customRpcDisplay');
+    
+    if (customRpcInput) customRpcInput.classList.remove('hidden');
+    if (customRpcDisplay) customRpcDisplay.classList.add('hidden');
+    
+    // 聚焦输入框
+    if (customRpcUrl) {
+        customRpcUrl.focus();
+        customRpcUrl.select();
+    }
+}
+
+function updateRpcConnection(rpcUrl) {
+    console.log('🔧 updateRpcConnection called with:', rpcUrl);
+    
+    try {
+        new URL(rpcUrl);
+        
+        if (window.connection) {
+            window.connection = new solanaWeb3.Connection(rpcUrl, 'confirmed');
+            console.log('✅ RPC connection updated to:', rpcUrl);
+        } else {
+            window.connection = new solanaWeb3.Connection(rpcUrl, 'confirmed');
+            console.log('✅ Created new RPC connection to:', rpcUrl);
+        }
+        
+        if (typeof connection !== 'undefined') {
+            connection = new solanaWeb3.Connection(rpcUrl, 'confirmed');
+        }
+        
+        if (typeof currentStakeAccounts !== 'undefined') {
+            currentStakeAccounts = [];
+        }
+        
+        const resultsSection = document.getElementById('resultsSection');
+        if (resultsSection && !resultsSection.classList.contains('hidden')) {
+            resultsSection.classList.add('hidden');
+        }
+        
+    } catch (error) {
+        console.error('Failed to update RPC connection:', error);
+        showError(`Failed to connect to RPC endpoint: ${error.message}`);
+    }
+}
+
+// Initialize RPC selector when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    const defaultRpc = 'https://rpc.testnet.x1.xyz';
+    updateRpcConnection(defaultRpc);
+    
+    initializeRpcSelector();
+});
