@@ -4005,13 +4005,7 @@ async function executeStakeDelegate(stakeAccountAddress) {
         await connection.confirmTransaction(signature, 'confirmed');
         
         const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
-        showSuccess(`✅ Stake delegated successfully! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
-        
-        // suggest user to refresh to see the latest status
-        setTimeout(() => {
-            showInfo('Delegation successful! You may refresh the page to see the updated stake status.');
-        }, 3000);
-        
+        showSuccess(`✅ Stake delegated successfully! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);      
     } catch (error) {
         console.error('Failed to delegate stake:', error);
         showError('Failed to delegate stake: ' + error.message);
