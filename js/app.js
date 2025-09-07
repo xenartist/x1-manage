@@ -5,6 +5,7 @@ let wallet = null;
 let walletConnected = false;
 let connectedWalletAddress = null;
 let walletDetected = false;
+let walletBalance = 0;
 
 // DOM elements
 const connectWalletBtn = document.getElementById('connectWallet');
@@ -136,7 +137,7 @@ function checkBackpackWallet() {
                 if (wallet.publicKey) {
                     walletConnected = true;
                     connectedWalletAddress = wallet.publicKey.toString();
-                    updateWalletUI(connectedWalletAddress);
+                    updateWalletUI();
                     console.log('✅ Wallet connected via event:', connectedWalletAddress);
                 }
             });
@@ -145,7 +146,7 @@ function checkBackpackWallet() {
                 console.log('Wallet disconnected event fired');
                 walletConnected = false;
                 connectedWalletAddress = null;
-                updateWalletUI(null);
+                updateWalletUI();
                 // Notify manage account page about wallet disconnect
                 if (typeof onWalletDisconnected === 'function') {
                     onWalletDisconnected();
@@ -215,7 +216,7 @@ async function tryAutoConnect() {
         if (wallet.isConnected && wallet.publicKey) {
             walletConnected = true;
             connectedWalletAddress = wallet.publicKey.toString();
-            updateWalletUI(connectedWalletAddress);
+            updateWalletUI();
             console.log('✅ Wallet already connected:', connectedWalletAddress);
             return;
         }
@@ -231,7 +232,7 @@ async function tryAutoConnect() {
         if (response && response.publicKey) {
             walletConnected = true;
             connectedWalletAddress = response.publicKey.toString();
-            updateWalletUI(connectedWalletAddress);
+            updateWalletUI();
             console.log('✅ Auto-connected to Backpack:', connectedWalletAddress);
         } else {
             console.log('Auto-connect: No trusted connection found');
@@ -261,7 +262,7 @@ async function connectWallet() {
             if (publicKey) {
                 walletConnected = true;
                 connectedWalletAddress = publicKey.toString();
-                updateWalletUI(connectedWalletAddress);
+                updateWalletUI();
                 console.log('✅ Backpack wallet already connected:', connectedWalletAddress);
                 
                 // Notify manage account page about wallet connection
@@ -303,7 +304,7 @@ async function connectWallet() {
                 if (response && response.publicKey) {
                     walletConnected = true;
                     connectedWalletAddress = response.publicKey.toString();
-                    updateWalletUI(connectedWalletAddress);
+                    updateWalletUI();
                     console.log('✅ Backpack wallet connected:', connectedWalletAddress);
                     
                     // Notify manage account page about wallet connection
@@ -371,7 +372,7 @@ async function disconnectWallet() {
         }
         walletConnected = false;
         connectedWalletAddress = null;
-        updateWalletUI(null);
+        updateWalletUI();
         // Notify manage account page about wallet disconnect
         if (typeof onWalletDisconnected === 'function') {
             onWalletDisconnected();
@@ -382,7 +383,7 @@ async function disconnectWallet() {
         // Force disconnect anyway
         walletConnected = false;
         connectedWalletAddress = null;
-        updateWalletUI(null);
+        updateWalletUI();
         if (typeof onWalletDisconnected === 'function') {
             onWalletDisconnected();
         }
@@ -390,28 +391,47 @@ async function disconnectWallet() {
 }
 
 // Update wallet UI
-function updateWalletUI(address) {
-    if (address) {
-        // Connected state
+function updateWalletUI() {
+    if (walletConnected && connectedWalletAddress) {
         connectWalletBtn.classList.add('hidden');
         walletInfo.classList.remove('hidden');
+        walletAddress.textContent = `${connectedWalletAddress.slice(0, 4)}...${connectedWalletAddress.slice(-4)}`;
         
-        // Format address for display (show first 4 and last 4 characters)
-        const shortAddress = `${address.slice(0, 4)}...${address.slice(-4)}`;
-        walletAddress.textContent = shortAddress;
-        walletAddress.title = address; // Full address on hover
+        // get and display wallet balance
+        fetchWalletBalance(connectedWalletAddress).then(balance => {
+            updateWalletBalanceDisplay(balance);
+        });
         
-        // Notify manage account page about wallet connection
+        // notify other wallet status update
         if (typeof onWalletUIUpdated === 'function') {
-            onWalletUIUpdated(address);
+            onWalletUIUpdated(connectedWalletAddress);
+        }
+        
+        // if in manage account page, update related status
+        const resultsSection = document.getElementById('resultsSection');
+        if (resultsSection && !resultsSection.classList.contains('hidden')) {
+            // update vote account authority check
+            if (typeof checkWithdrawAuthorityMatch === 'function') {
+                setTimeout(() => checkWithdrawAuthorityMatch(), 100);
+            }
+            
+            // update stake account authority check
+            const activeTab = getCurrentActiveTab();
+            if (activeTab && activeTab.startsWith('stake-') && typeof checkStakeAuthorities === 'function') {
+                setTimeout(() => {
+                    checkStakeAuthorities(activeTab);
+                }, 100);
+            }
         }
     } else {
-        // Disconnected state
         connectWalletBtn.classList.remove('hidden');
         walletInfo.classList.add('hidden');
         walletAddress.textContent = '';
         
-        // Notify manage account page about wallet disconnection
+        // clear balance display
+        updateWalletBalanceDisplay(0);
+        
+        // notify other wallet disconnected
         if (typeof onWalletUIUpdated === 'function') {
             onWalletUIUpdated(null);
         }
@@ -697,7 +717,7 @@ function editCustomRpc() {
     if (customRpcInput) customRpcInput.classList.remove('hidden');
     if (customRpcDisplay) customRpcDisplay.classList.add('hidden');
     
-    // 聚焦输入框
+    // focus input field
     if (customRpcUrl) {
         customRpcUrl.focus();
         customRpcUrl.select();
@@ -744,3 +764,72 @@ document.addEventListener('DOMContentLoaded', function() {
     
     initializeRpcSelector();
 });
+
+// add function to get wallet balance
+async function fetchWalletBalance(address) {
+    try {
+        if (!connection || !address) {
+            return 0;
+        }
+        
+        const publicKey = new solanaWeb3.PublicKey(address);
+        const balance = await connection.getBalance(publicKey);
+        const solBalance = balance / solanaWeb3.LAMPORTS_PER_SOL;
+        
+        console.log(`💰 Wallet balance: ${solBalance} XNT`);
+        return solBalance;
+    } catch (error) {
+        console.error('Failed to fetch wallet balance:', error);
+        return 0;
+    }
+}
+
+// update wallet balance display
+function updateWalletBalanceDisplay(balance) {
+    const walletBalanceEl = document.getElementById('walletBalance');
+    if (walletBalanceEl) {
+        walletBalance = balance;
+        walletBalanceEl.textContent = `${balance.toFixed(6)} XNT`;
+    }
+}
+
+// add helper function to get current active tab
+function getCurrentActiveTab() {
+    const activeTabBtn = document.querySelector('.tab-btn.active[data-tab-id]');
+    return activeTabBtn ? activeTabBtn.getAttribute('data-tab-id') : null;
+}
+
+// optional: add periodic update balance function
+let balanceUpdateInterval = null;
+
+function startBalanceUpdates() {
+    // update balance every 30 seconds
+    balanceUpdateInterval = setInterval(() => {
+        if (walletConnected && connectedWalletAddress) {
+            fetchWalletBalance(connectedWalletAddress).then(balance => {
+                updateWalletBalanceDisplay(balance);
+            });
+        }
+    }, 30000);
+}
+
+function stopBalanceUpdates() {
+    if (balanceUpdateInterval) {
+        clearInterval(balanceUpdateInterval);
+        balanceUpdateInterval = null;
+    }
+}
+
+// start balance updates when connecting wallet
+async function connectWallet() {
+    // start balance updates when connecting wallet
+    if (walletConnected) {
+        startBalanceUpdates();
+    }
+}
+
+// stop balance updates when disconnecting wallet
+function disconnectWallet() {
+    // stop balance updates
+    stopBalanceUpdates();
+}
