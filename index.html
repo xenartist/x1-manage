@@ -5,181 +5,229 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>X1 Validator Management</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=2025090701">
+    <link rel="stylesheet" href="css/base.css?v=2025090702">
+    <link rel="stylesheet" href="css/manage_account.css?v=2025090702">
     <!-- Add Solana Web3.js SDK -->
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
 </head>
 <body>
-    <div class="container">
-        <!-- Top right controls (RPC + Wallet) -->
-        <div class="top-controls">
-            <!-- RPC Endpoint selector -->
-            <div class="rpc-selector">
-                <div class="select-wrapper">
-                    <i class="fas fa-server"></i>
-                    <select id="rpcEndpoint" class="rpc-select">
-                        <option value="https://rpc.testnet.x1.xyz">X1 Testnet (Default)</option>
-                    </select>
-                </div>
+    <div class="app-container">
+        <!-- App Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <h1><i class="fas fa-server"></i> X1 Validator Management</h1>
             </div>
+            <div class="header-right">
+                <!-- RPC Endpoint selector -->
+                <div class="rpc-selector">
+                    <div class="select-wrapper">
+                        <i class="fas fa-server"></i>
+                        <select id="rpcEndpoint" class="rpc-select">
+                            <option value="https://rpc.testnet.x1.xyz">X1 Testnet (Default)</option>
+                        </select>
+                    </div>
+                </div>
 
-            <!-- Wallet connection -->
-            <div class="wallet-section-top">
-                <button id="connectWallet" class="wallet-btn">
-                    <i class="fas fa-wallet"></i>
-                    Connect Backpack Wallet
-                </button>
-                <div id="walletInfo" class="wallet-info hidden">
-                    <div class="wallet-connected">
-                        <i class="fas fa-check-circle"></i>
-                        <span>Connected:</span>
-                        <span id="walletAddress" class="wallet-address"></span>
-                        <button id="disconnectWallet" class="disconnect-btn">
-                            <i class="fas fa-times"></i>
-                        </button>
+                <!-- Wallet connection -->
+                <div class="wallet-section">
+                    <button id="connectWallet" class="wallet-btn">
+                        <i class="fas fa-wallet"></i>
+                        Connect Backpack Wallet
+                    </button>
+                    <div id="walletInfo" class="wallet-info hidden">
+                        <div class="wallet-connected">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Connected:</span>
+                            <span id="walletAddress" class="wallet-address"></span>
+                            <button id="disconnectWallet" class="disconnect-btn">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-
-        <header class="header">
-            <h1><i class="fas fa-server"></i> X1 Validator Management</h1>
         </header>
 
-        <div class="search-section">
-            <div class="input-group">
-                <label for="voteAccount">Vote Account Public Key:</label>
-                <div class="input-wrapper">
-                    <i class="fas fa-key"></i>
-                    <input 
-                        type="text" 
-                        id="voteAccount" 
-                        placeholder="Enter vote account public key..."
-                        class="vote-input"
-                        autocomplete="off"
-                    >
-                    <button id="useWalletAddress" class="use-wallet-btn hidden" title="Use connected wallet address">
-                        <i class="fas fa-wallet"></i>
-                    </button>
-                </div>
-            </div>
-
-            <button id="searchBtn" class="search-btn">
-                <i class="fas fa-search"></i>
-                Search Vote Account
-            </button>
-        </div>
-
-        <div id="loadingSpinner" class="loading hidden">
-            <i class="fas fa-spinner fa-spin"></i>
-            <span>Loading vote account information...</span>
-        </div>
-
-        <div id="errorMessage" class="error-message hidden">
-            <i class="fas fa-exclamation-triangle"></i>
-            <span id="errorText"></span>
-        </div>
-
-        <!-- Add info message container -->
-        <div id="infoMessage" class="info-message hidden">
-            <i class="fas fa-info-circle"></i>
-            <span id="infoText"></span>
-        </div>
-
-        <!-- Add warning message container -->
-        <div id="warningMessage" class="warning-message hidden">
-            <i class="fas fa-exclamation-circle"></i>
-            <span id="warningText"></span>
-        </div>
-
-        <!-- Add success message container -->
-        <div id="successMessage" class="success-message hidden">
-            <i class="fas fa-check-circle"></i>
-            <span id="successText"></span>
-        </div>
-
-        <div id="resultsSection" class="results-section hidden">
-            <h2><i class="fas fa-info-circle"></i> Vote & Stake Information</h2>
-            
-            <!-- Add tab navigation -->
-            <div class="tab-navigation">
-                <button class="tab-btn active" onclick="switchTab('vote-info')">
-                    <i class="fas fa-vote-yea"></i>
-                    Vote Account
-                </button>
-                <div id="stakeTabs" class="stake-tabs">
-                    <!-- Stake tabs will be dynamically added here -->
-                </div>
-            </div>
-            
-            <!-- Tab contents -->
-            <div class="tab-contents">
-                <!-- Vote Account Info Tab -->
-                <div id="vote-info" class="tab-content active">
-                    <div class="info-grid">
-                        <!-- Account Balance card - moved to first position -->
-                        <div class="info-card balance-card">
-                            <div class="info-header">
-                                <i class="fas fa-wallet"></i>
-                                <h3>Account Balance</h3>
-                            </div>
-                            <div class="info-content">
-                                <span id="accountBalance" class="balance">-</span>
-                                <button id="withdrawBtn" class="withdraw-btn" onclick="showWithdrawModal()" disabled>
-                                    <i class="fas fa-arrow-right"></i>
-                                    Withdraw
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left Sidebar Navigation -->
+            <aside class="sidebar">
+                <nav class="nav-menu">
+                    <div class="nav-section">
+                        <h3>Account Management</h3>
+                        <ul class="nav-list">
+                            <li class="nav-item">
+                                <button class="nav-btn" data-page="new-account">
+                                    <i class="fas fa-plus-circle"></i>
+                                    <span>New Account</span>
                                 </button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-btn active" data-page="manage-account">
+                                    <i class="fas fa-cogs"></i>
+                                    <span>Manage Account</span>
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                </nav>
+            </aside>
+
+            <!-- Right Content Area -->
+            <main class="content-area">
+                <!-- Message Containers (Global) -->
+                <div id="loadingSpinner" class="loading hidden">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>Loading...</span>
+                </div>
+
+                <div id="errorMessage" class="error-message hidden">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span id="errorText"></span>
+                </div>
+
+                <div id="infoMessage" class="info-message hidden">
+                    <i class="fas fa-info-circle"></i>
+                    <span id="infoText"></span>
+                </div>
+
+                <div id="warningMessage" class="warning-message hidden">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span id="warningText"></span>
+                </div>
+
+                <div id="successMessage" class="success-message hidden">
+                    <i class="fas fa-check-circle"></i>
+                    <span id="successText"></span>
+                </div>
+
+                <!-- Page: Manage Account -->
+                <div id="manage-account" class="page active">
+                    <div class="page-header">
+                        <h2><i class="fas fa-cogs"></i> Manage Vote & Stake Accounts</h2>
+                        <p>Search and manage your vote accounts and delegated stake accounts</p>
+                    </div>
+
+                    <div class="search-section">
+                        <div class="input-group">
+                            <label for="voteAccount">Vote Account Public Key:</label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-key"></i>
+                                <input 
+                                    type="text" 
+                                    id="voteAccount" 
+                                    placeholder="Enter vote account public key..."
+                                    class="vote-input"
+                                    autocomplete="off"
+                                >
                             </div>
                         </div>
 
-                        <div class="info-card">
-                            <div class="info-header">
-                                <i class="fas fa-user-shield"></i>
-                                <h3>Validator Identity</h3>
-                            </div>
-                            <div class="info-content">
-                                <span id="validatorIdentity" class="address">-</span>
+                        <button id="searchBtn" class="search-btn">
+                            <i class="fas fa-search"></i>
+                            Search Vote Account
+                        </button>
+                    </div>
+
+                    <div id="resultsSection" class="results-section hidden">
+                        <h3><i class="fas fa-info-circle"></i> Vote & Stake Information</h3>
+                        
+                        <!-- Add tab navigation -->
+                        <div class="tab-navigation">
+                            <button class="tab-btn active" onclick="switchTab('vote-info')">
+                                <i class="fas fa-vote-yea"></i>
+                                Vote Account
+                            </button>
+                            <div id="stakeTabs" class="stake-tabs">
+                                <!-- Stake tabs will be dynamically added here -->
                             </div>
                         </div>
+                        
+                        <!-- Tab contents -->
+                        <div class="tab-contents">
+                            <!-- Vote Account Info Tab -->
+                            <div id="vote-info" class="tab-content active">
+                                <div class="info-grid">
+                                    <!-- Account Balance card - moved to first position -->
+                                    <div class="info-card balance-card">
+                                        <div class="info-header">
+                                            <i class="fas fa-wallet"></i>
+                                            <h3>Account Balance</h3>
+                                        </div>
+                                        <div class="info-content">
+                                            <span id="accountBalance" class="balance">-</span>
+                                            <button id="withdrawBtn" class="withdraw-btn" onclick="showWithdrawModal()" disabled>
+                                                <i class="fas fa-arrow-right"></i>
+                                                Withdraw
+                                            </button>
+                                        </div>
+                                    </div>
 
-                        <div class="info-card">
-                            <div class="info-header">
-                                <i class="fas fa-hand-holding-usd"></i>
-                                <h3>Withdraw Authority</h3>
-                            </div>
-                            <div class="info-content">
-                                <span id="withdrawAuthority" class="address">-</span>
-                            </div>
-                        </div>
+                                    <div class="info-card">
+                                        <div class="info-header">
+                                            <i class="fas fa-user-shield"></i>
+                                            <h3>Validator Identity</h3>
+                                        </div>
+                                        <div class="info-content">
+                                            <span id="validatorIdentity" class="address">-</span>
+                                        </div>
+                                    </div>
 
-                        <div class="info-card">
-                            <div class="info-header">
-                                <i class="fas fa-coins"></i>
-                                <h3>Credits</h3>
-                            </div>
-                            <div class="info-content">
-                                <span id="credits" class="number">-</span>
-                            </div>
-                        </div>
+                                    <div class="info-card">
+                                        <div class="info-header">
+                                            <i class="fas fa-hand-holding-usd"></i>
+                                            <h3>Withdraw Authority</h3>
+                                        </div>
+                                        <div class="info-content">
+                                            <span id="withdrawAuthority" class="address">-</span>
+                                        </div>
+                                    </div>
 
-                        <div class="info-card">
-                            <div class="info-header">
-                                <i class="fas fa-percentage"></i>
-                                <h3>Commission</h3>
+                                    <div class="info-card">
+                                        <div class="info-header">
+                                            <i class="fas fa-coins"></i>
+                                            <h3>Credits</h3>
+                                        </div>
+                                        <div class="info-content">
+                                            <span id="credits" class="number">-</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="info-card">
+                                        <div class="info-header">
+                                            <i class="fas fa-percentage"></i>
+                                            <h3>Commission</h3>
+                                        </div>
+                                        <div class="info-content">
+                                            <span id="commission" class="number">-</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="info-content">
-                                <span id="commission" class="number">-</span>
-                            </div>
+                            
+                            <!-- Stake tabs content will be dynamically added here -->
+                            <div id="stakeTabsContent"></div>
                         </div>
                     </div>
                 </div>
-                
-                <!-- Stake tabs content will be dynamically added here -->
-                <div id="stakeTabsContent"></div>
-            </div>
+
+                <!-- Page: New Account -->
+                <div id="new-account" class="page">
+                    <div class="page-header">
+                        <h2><i class="fas fa-plus-circle"></i> Generate New Account</h2>
+                        <p>Generate new Solana accounts for validators, vote accounts, stake accounts, and more</p>
+                    </div>
+                    <div class="coming-soon">
+                        <i class="fas fa-hammer"></i>
+                        <h3>Coming Soon</h3>
+                        <p>This feature is under development</p>
+                    </div>
+                </div>
+            </main>
         </div>
 
-        <footer class="footer">
+        <!-- Footer -->
+        <footer class="app-footer">
             <p><a href="https://x1.wiki" target="_blank">x1.wiki</a> is maintained by <a href="https://x.com/xen_artist" target="_blank">xen_artist</a></p>
         </footer>
     </div>
@@ -213,6 +261,8 @@
         </div>
     </div>
 
-    <script src="script.js?v=2025090613"></script>
+    <!-- Scripts -->
+    <script src="js/app.js?v=2025090702"></script>
+    <script src="js/manage_account.js?v=2025090702"></script>
 </body>
 </html>
