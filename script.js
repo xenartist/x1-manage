@@ -1990,7 +1990,7 @@ async function createStakeTab(stakeAccount, index, currentEpoch = null) {
         `<span class="status-indicator deactivating" title="Deactivating">
             <i class="fas fa-hourglass-half"></i>
         </span>` : 
-        (stakeStatus.text === 'Inactive' ? 
+        (stakeStatus.text === 'Inactive' && hasStakeAuthority ? 
         `<span class="status-indicator inactive" title="Inactive">
             <i class="fas fa-stop-circle"></i>
         </span>` : '');
