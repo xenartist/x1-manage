@@ -1055,9 +1055,8 @@ function addMaxAmountButton() {
     maxBtn.textContent = 'Max';
     maxBtn.onclick = () => {
         const availableBalance = parseFloat(availableBalanceEl.textContent);
-        // Leave a small amount for transaction fees (0.001 XNT)
-        const maxWithdrawAmount = Math.max(0, availableBalance - 0.001);
-        withdrawAmountInput.value = maxWithdrawAmount.toFixed(6);
+        const maxWithdrawAmount = Math.floor(availableBalance); // only allow integer part of available balance to be withdrawn
+        withdrawAmountInput.value = maxWithdrawAmount;
     };
     
     formGroup.style.position = 'relative';
@@ -1550,8 +1549,10 @@ async function executeWithdraw() {
     }
 
     const availableBalance = parseFloat(availableBalanceEl.textContent);
-    if (amount > availableBalance) {
-        showError('Withdrawal amount exceeds available balance');
+    const maxAllowedWithdraw = Math.floor(availableBalance); // only allow integer part of available balance to be withdrawn
+    
+    if (amount > maxAllowedWithdraw) {
+        showError(`Withdrawal amount exceeds maximum allowed: ${maxAllowedWithdraw} XNT (only integer part of available balance can be withdrawn)`);
         return;
     }
 
