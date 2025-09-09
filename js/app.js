@@ -109,6 +109,11 @@ function switchPage(pageId) {
             if (typeof initializeManageAccount === 'function') {
                 initializeManageAccount();
             }
+        } else if (pageId === 'new-account') {
+            // Initialize new account page
+            if (typeof initializeNewAccount === 'function') {
+                initializeNewAccount();
+            }
         }
     } else {
         console.warn('Page not found:', pageId);
@@ -150,6 +155,10 @@ function checkBackpackWallet() {
                 // Notify manage account page about wallet disconnect
                 if (typeof onWalletDisconnected === 'function') {
                     onWalletDisconnected();
+                }
+                // Notify new account page about wallet disconnect
+                if (typeof onWalletDisconnectedNewAccount === 'function') {
+                    onWalletDisconnectedNewAccount();
                 }
             });
         }
@@ -272,6 +281,10 @@ async function connectWallet() {
                 if (typeof onWalletConnected === 'function') {
                     onWalletConnected();
                 }
+                // Notify new account page about wallet connection
+                if (typeof onWalletConnectedNewAccount === 'function') {
+                    onWalletConnectedNewAccount();
+                }
                 return;
             }
         }
@@ -316,6 +329,10 @@ async function connectWallet() {
                     // Notify manage account page about wallet connection
                     if (typeof onWalletConnected === 'function') {
                         onWalletConnected();
+                    }
+                    // Notify new account page about wallet connection
+                    if (typeof onWalletConnectedNewAccount === 'function') {
+                        onWalletConnectedNewAccount();
                     }
                     return; // Success, exit retry loop
                 } else {
@@ -387,6 +404,10 @@ async function disconnectWallet() {
         if (typeof onWalletDisconnected === 'function') {
             onWalletDisconnected();
         }
+        // Notify new account page about wallet disconnect
+        if (typeof onWalletDisconnectedNewAccount === 'function') {
+            onWalletDisconnectedNewAccount();
+        }
         console.log('✅ Backpack wallet disconnected');
     } catch (error) {
         console.error('Failed to disconnect wallet:', error);
@@ -400,6 +421,9 @@ async function disconnectWallet() {
         updateWalletUI();
         if (typeof onWalletDisconnected === 'function') {
             onWalletDisconnected();
+        }
+        if (typeof onWalletDisconnectedNewAccount === 'function') {
+            onWalletDisconnectedNewAccount();
         }
     }
 }

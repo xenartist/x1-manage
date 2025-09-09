@@ -7,8 +7,17 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/base.css?v=2025090704">
     <link rel="stylesheet" href="css/manage_account.css?v=2025090702">
+    <link rel="stylesheet" href="css/new_account.css?v=2025090701">
     <!-- Add Solana Web3.js SDK -->
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <!-- Add BIP39 library for mnemonic generation -->
+    <script type="module">
+        import * as bip39 from 'https://cdn.jsdelivr.net/npm/@scure/bip39/+esm';
+        import { wordlist } from 'https://cdn.jsdelivr.net/npm/@scure/bip39/wordlists/english/+esm';
+        
+        window.bip39 = bip39;
+        window.bip39Wordlist = wordlist;
+      </script>
 </head>
 <body>
     <div class="app-container">
@@ -261,10 +270,218 @@
                         <h2><i class="fas fa-plus-circle"></i> Generate New Account</h2>
                         <p>Generate new accounts for validators identity accounts, vote accounts, stake accounts, and more</p>
                     </div>
-                    <div class="coming-soon">
-                        <i class="fas fa-hammer"></i>
-                        <h3>Coming Soon</h3>
-                        <p>This feature is under development</p>
+
+                    <div class="new-account-container">
+                        <!-- Validator Section -->
+                        <div class="validator-section">
+                            <div class="validator-header">
+                                <div class="validator-info">
+                                    <h3><i class="fas fa-server"></i> Validator Configuration</h3>
+                                </div>
+                                <div class="validator-status">
+                                    <div id="walletStatus">
+                                        <div class="status-dot" style="background: #f59e0b;"></div>
+                                        <span>Wallet Not Connected</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Authority Display -->
+                            <div id="authorityDisplay">
+                                <div class="authority-info">
+                                    <h5><i class="fas fa-exclamation-triangle"></i> No Authority Set</h5>
+                                    <div style="color: #f59e0b; font-size: 14px;">Please connect your wallet to set default authorities</div>
+                                </div>
+                            </div>
+
+                            <!-- Account Types Grid -->
+                            <div class="account-types-grid">
+                                <!-- Identity Account -->
+                                <div class="account-type-card" data-type="identity">
+                                    <div class="card-header">
+                                        <div class="card-title">
+                                            <i class="fas fa-user-shield"></i>
+                                            Identity Account
+                                        </div>
+                                        <div class="account-limit">Limit: 1</div>
+                                    </div>
+                                    <div class="card-description">
+                                        The identity account represents your validator and is used to sign blocks and vote transactions.
+                                    </div>
+                                    <div class="account-status">
+                                        <div class="existing-accounts none">No accounts</div>
+                                    </div>
+                                    <button id="generateIdentityBtn" class="generate-btn">
+                                        <i class="fas fa-plus"></i>
+                                        Generate Identity Account
+                                    </button>
+                                    
+                                    <!-- Generated Identity Account -->
+                                    <div class="generated-accounts" style="display: none;">
+                                        <h4>Generated Account:</h4>
+                                        <div id="identityAccountsList" class="accounts-list"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Vote Account -->
+                                <div class="account-type-card" data-type="vote">
+                                    <div class="card-header">
+                                        <div class="card-title">
+                                            <i class="fas fa-vote-yea"></i>
+                                            Vote Account
+                                        </div>
+                                        <div class="account-limit">Limit: 1</div>
+                                    </div>
+                                    <div class="card-description">
+                                        Vote accounts are used to participate in consensus and track validator performance and rewards.
+                                    </div>
+                                    <div class="account-status">
+                                        <div class="existing-accounts none">No accounts</div>
+                                    </div>
+                                    <button id="generateVoteBtn" class="generate-btn">
+                                        <i class="fas fa-plus"></i>
+                                        Generate Vote Account
+                                    </button>
+                                    
+                                    <!-- Generated Vote Account -->
+                                    <div class="generated-accounts">
+                                        <h4>Generated Account:</h4>
+                                        <div id="voteAccountsList" class="accounts-list"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Stake Account -->
+                                <div class="account-type-card" data-type="stake">
+                                    <div class="card-header">
+                                        <div class="card-title">
+                                            <i class="fas fa-coins"></i>
+                                            Stake Account
+                                        </div>
+                                        <div class="account-limit">Multiple allowed</div>
+                                    </div>
+                                    <div class="card-description">
+                                        Stake accounts hold delegated stake and earn rewards. They can be delegated to vote accounts.
+                                    </div>
+                                    <div class="account-status">
+                                        <div class="existing-accounts none">No accounts</div>
+                                    </div>
+                                    <button id="generateStakeBtn" class="generate-btn">
+                                        <i class="fas fa-plus"></i>
+                                        Generate Stake Account
+                                    </button>
+                                    
+                                    <!-- Generated Stake Accounts -->
+                                    <div class="generated-accounts">
+                                        <h4>Generated Accounts:</h4>
+                                        <div id="stakeAccountsList" class="accounts-list"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generation Modal -->
+                <div id="generationModal" class="modal hidden">
+                    <div class="modal-content generation-modal">
+                        <div class="modal-header">
+                            <h3 id="modalTitle"><i class="fas fa-plus-circle"></i> Generate Account</h3>
+                            <button class="modal-close" onclick="hideGenerationModal()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <!-- Generation Form -->
+                            <div id="generationForm" class="generation-form">
+                                <div class="form-section">
+                                    <h4><i class="fas fa-info-circle"></i> Account Information</h4>
+                                    <p id="modalDescription">Account description will appear here.</p>
+                                    <input type="hidden" id="accountType" value="">
+                                </div>
+
+                                <div class="form-section">
+                                    <h4><i class="fas fa-route"></i> Derivation Path</h4>
+                                    <div class="derivation-path-group">
+                                        <input type="text" id="derivationPath" class="derivation-input" placeholder="m/44'/501'/0'/0'" autocomplete="off">
+                                        <button type="button" class="use-default-btn" onclick="useDefaultPath()">Use Default</button>
+                                    </div>
+                                    <small style="color: #666; font-size: 12px;">Default: m/44'/501'/0'/0'</small>
+                                </div>
+
+                                <div class="form-section">
+                                    <h4><i class="fas fa-shield-alt"></i> Authority Configuration</h4>
+                                    <p style="font-size: 14px; color: #666; margin-bottom: 12px;">
+                                        The following account will be set as the default signer, payer, withdraw authority, and stake authority:
+                                    </p>
+                                    <div class="authority-info">
+                                        <h5><i class="fas fa-user-shield"></i> Authority Account</h5>
+                                        <div id="authorityAddress" class="authority-address">Not connected</div>
+                                    </div>
+                                </div>
+
+                                <div class="warning-note">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <div>
+                                        <strong>Important:</strong> Make sure to securely store the recovery seed and keypair file. 
+                                        These are required to access your account and cannot be recovered if lost.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Generation Progress -->
+                            <div id="generationProgress" class="generation-progress" style="display: none;">
+                                <h4>Generating Account...</h4>
+                                <div class="progress-steps">
+                                    <div class="progress-step" data-step="generating">
+                                        <i class="fas fa-key"></i>
+                                        <span>Generating Keypair</span>
+                                    </div>
+                                    <div class="progress-step" data-step="seed">
+                                        <i class="fas fa-seedling"></i>
+                                        <span>Creating Recovery Seed</span>
+                                    </div>
+                                    <div class="progress-step" data-step="creating">
+                                        <i class="fas fa-plus-circle"></i>
+                                        <span>Creating Account</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Recovery Section -->
+                            <div id="recoverySection" class="recovery-section" style="display: none;">
+                                <h4><i class="fas fa-key"></i> Recovery Information</h4>
+                                <p>Please save this recovery seed phrase securely. You will need it to recover your account.</p>
+                                
+                                <div class="seed-phrase">
+                                    <div id="seedWords" class="seed-words"></div>
+                                    <div class="seed-actions">
+                                        <button class="action-btn copy-btn" onclick="copySeed()">
+                                            <i class="fas fa-copy"></i>
+                                            Copy Seed
+                                        </button>
+                                        <button class="action-btn download-btn" onclick="downloadCurrentKeypair()">
+                                            <i class="fas fa-download"></i>
+                                            Download Keypair
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="warning-note">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <div>
+                                        <strong>Security Warning:</strong> Store this seed phrase in a secure location. 
+                                        Anyone with access to this seed can control your account.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn-cancel" onclick="hideGenerationModal()">Cancel</button>
+                            <button id="generateAccountBtn" class="btn-confirm" onclick="generateAccount()">
+                                <i class="fas fa-plus"></i>
+                                Generate Account
+                            </button>
+                        </div>
                     </div>
                 </div>
             </main>
@@ -305,8 +522,67 @@
         </div>
     </div>
 
+    <!-- Seed Verification Modal -->
+    <div id="seedVerificationModal" class="modal hidden">
+        <div class="modal-content seed-verification-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-shield-check"></i> Verify Your Seed Phrase</h3>
+                <!-- 不提供关闭按钮，强制验证 -->
+            </div>
+            <div class="modal-body">
+                <div class="verification-instructions">
+                    <h4><i class="fas fa-info-circle"></i> Verification Instructions</h4>
+                    <p>To ensure you have correctly saved your seed phrase, please click the words below in the correct order (1-12).</p>
+                </div>
+                
+                <div class="verification-progress-section">
+                    <div class="verification-status" id="verificationStatus">
+                        Please select the words in the correct order
+                    </div>
+                    <div class="verification-progress">
+                        Progress: <span id="verificationProgress">0 / 12</span>
+                    </div>
+                </div>
+                
+                <div class="selected-words-section">
+                    <h5>Your Selection:</h5>
+                    <div id="selectedWords" class="selected-words"></div>
+                </div>
+                
+                <div class="shuffled-words-section">
+                    <h5>Click the words in order:</h5>
+                    <div id="shuffledWords" class="shuffled-words"></div>
+                </div>
+                
+                <div class="verification-actions">
+                    <button class="btn-reset" onclick="resetSeedVerification()">
+                        <i class="fas fa-redo"></i> Reset
+                    </button>
+                </div>
+
+                <!-- 添加下载提醒区域 -->
+                <div class="download-reminder">
+                    <div class="reminder-header">
+                        <h5><i class="fas fa-download"></i> Don't Forget to Download</h5>
+                        <p>Make sure to download your keypair file for backup purposes.</p>
+                    </div>
+                    <button id="downloadKeypairBtn" class="download-keypair-btn disabled" onclick="downloadKeypairFromVerification()" disabled>
+                        <i class="fas fa-download"></i>
+                        Download Keypair File
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="completeVerificationBtn" class="btn-confirm" onclick="hideSeedVerification()" disabled>
+                    <i class="fas fa-clock"></i> Complete Verification First
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="js/app.js?v=2025090706"></script>
     <script src="js/manage_account.js?v=2025090703"></script>
+    <script src="js/new_account.js?v=2025090701"></script>
 </body>
 </html>
