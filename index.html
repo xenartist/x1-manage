@@ -14,10 +14,12 @@
     <script type="module">
         import * as bip39 from 'https://cdn.jsdelivr.net/npm/@scure/bip39/+esm';
         import { wordlist } from 'https://cdn.jsdelivr.net/npm/@scure/bip39/wordlists/english/+esm';
+        import { derivePath } from 'https://cdn.jsdelivr.net/npm/ed25519-hd-key/+esm';
         
         window.bip39 = bip39;
         window.bip39Wordlist = wordlist;
-      </script>
+        window.derivePath = derivePath;
+    </script>
 </head>
 <body>
     <div class="app-container">

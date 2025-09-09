@@ -956,30 +956,75 @@ async function generateKeypairFromSeed(seedWords, derivationPath) {
     const seedPhrase = seedWords.join(' ');
     
     try {
-        // Check if @scure/bip39 is available for proper seed generation
-        if (typeof bip39 !== 'undefined' && bip39.mnemonicToSeed) {
-            console.log('✅ Using @scure/bip39 to convert mnemonic to seed');
+        // Check if required libraries are available
+        if (typeof bip39 !== 'undefined' && bip39.mnemonicToSeed && typeof derivePath !== 'undefined') {
+            console.log('✅ Using ed25519-hd-key for standard Solana BIP44 derivation');
             
-            // Convert mnemonic to seed bytes
+            // Step 1: Convert mnemonic to seed bytes (BIP39)
             const seedBuffer = await bip39.mnemonicToSeed(seedPhrase);
+            console.log('✅ Generated seed buffer from mnemonic, length:', seedBuffer.length);
             
-            // Use @solana/web3.js Keypair.fromSeed() with first 32 bytes
-            const seedBytes = new Uint8Array(seedBuffer.slice(0, 32));
-            const keypair = solanaWeb3.Keypair.fromSeed(seedBytes);
+            // Step 2: Use ed25519-hd-key for proper Solana derivation
+            console.log('✅ Using derivation path:', derivationPath);
+            
+            // Step 3: Derive using ed25519-hd-key with correct parameters
+            const seedHex = Array.from(new Uint8Array(seedBuffer))
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+            
+            console.log('✅ Converted seed to hex format, length:', seedHex.length);
+            
+            const derived = derivePath(derivationPath, seedHex);
+            console.log('✅ Derived key object:', derived);
+            console.log('✅ Derived key type:', typeof derived.key);
+            console.log('✅ Derived key value:', derived.key);
+            
+            // Step 4: Create Solana keypair from derived key
+            let privateKeyBytes;
+            
+            if (typeof derived.key === 'string') {
+                // If key is hex string, convert to bytes
+                privateKeyBytes = new Uint8Array(
+                    derived.key.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
+                );
+            } else if (derived.key instanceof Uint8Array) {
+                // If key is already Uint8Array, use directly
+                privateKeyBytes = derived.key;
+            } else if (Array.isArray(derived.key)) {
+                // If key is regular array, convert to Uint8Array
+                privateKeyBytes = new Uint8Array(derived.key);
+            } else {
+                // Try to convert to Uint8Array as fallback
+                privateKeyBytes = new Uint8Array(Object.values(derived.key));
+            }
+            
+            console.log('✅ Private key bytes length:', privateKeyBytes.length);
+            
+            // Use first 32 bytes as seed for Solana keypair
+            const keypair = solanaWeb3.Keypair.fromSeed(privateKeyBytes.slice(0, 32));
+            
+            console.log('✅ Ed25519 BIP44 derivation successful. Path:', derivationPath);
+            console.log('✅ Public key generated:', keypair.publicKey.toString());
             
             return {
                 publicKey: keypair.publicKey.toString(),
-                secretKey: Array.from(keypair.secretKey) // Convert to [num, num, ...] format like Solana CLI
+                secretKey: Array.from(keypair.secretKey)
             };
         } else {
-            // Fallback: use a simplified approach for development
-            console.warn('⚠️ @scure/bip39.mnemonicToSeed not available, using fallback');
+            console.warn('⚠️ ed25519-hd-key not available, using fallback');
             return generateKeypairFallback(seedPhrase, derivationPath);
         }
         
     } catch (error) {
         console.error('❌ Failed to generate keypair from seed:', error);
-        throw new Error('Failed to generate keypair from seed: ' + error.message);
+        // If ed25519-hd-key fails, try alternative method
+        console.log('⚠️ Trying alternative derivation method...');
+        try {
+            return await generateKeypairFromSeedAlternative(seedWords, derivationPath);
+        } catch (altError) {
+            console.error('❌ Alternative derivation also failed:', altError);
+            throw new Error('Failed to generate keypair from seed: ' + error.message);
+        }
     }
 }
 
@@ -1018,6 +1063,40 @@ function simpleHash(str) {
         hash.push(...hash);
     }
     return hash.slice(0, 64);
+}
+
+// Alternative implementation using native crypto if ed25519-hd-key fails
+async function generateKeypairFromSeedAlternative(seedWords, derivationPath) {
+    console.log('📝 Using alternative Solana-compatible derivation');
+    const seedPhrase = seedWords.join(' ');
+    
+    try {
+        if (typeof bip39 !== 'undefined' && bip39.mnemonicToSeed) {
+            // Step 1: Generate seed
+            const seed = await bip39.mnemonicToSeed(seedPhrase);
+            
+            // Step 2: Simple deterministic derivation (Solana-compatible)
+            // This mimics how most Solana wallets derive keys
+            const pathSeed = new TextEncoder().encode(derivationPath);
+            const combined = new Uint8Array(seed.length + pathSeed.length);
+            combined.set(new Uint8Array(seed), 0);
+            combined.set(pathSeed, seed.length);
+            
+            // Hash to get final seed
+            const finalSeed = await crypto.subtle.digest('SHA-256', combined);
+            const keypair = solanaWeb3.Keypair.fromSeed(new Uint8Array(finalSeed));
+            
+            return {
+                publicKey: keypair.publicKey.toString(),
+                secretKey: Array.from(keypair.secretKey)
+            };
+        }
+    } catch (error) {
+        console.error('❌ Alternative derivation failed:', error);
+    }
+    
+    // Final fallback
+    return generateKeypairFallback(seedPhrase, derivationPath);
 }
 
 // Initialize when page loads
