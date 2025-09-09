@@ -113,14 +113,15 @@ function updateVoteAccountsDisplay() {
     const voteAccountsList = document.getElementById('voteAccountsList');
     const generatedSection = document.querySelector('[data-type="vote"] .generated-accounts');
     
+    // Check if identity account exists - required for ALL vote account operations
+    const hasIdentityAccount = currentValidator.identityAccount && currentValidator.identityAccount.publicKey;
+    
     if (currentValidator.voteAccount) {
-        if (voteBtn) voteBtn.disabled = true;
         if (existingCount) {
             existingCount.textContent = '1 account created';
             existingCount.classList.remove('none');
         }
         if (voteCard) {
-            voteCard.classList.add('disabled');
             voteCard.classList.add('has-account');
         }
         if (generatedSection) generatedSection.style.display = 'block';
@@ -131,14 +132,43 @@ function updateVoteAccountsDisplay() {
             const accountElement = createAccountElement(currentValidator.voteAccount, ACCOUNT_TYPES.VOTE, 0);
             voteAccountsList.appendChild(accountElement);
         }
+        
+        // Change button to Create Vote Account - but only enable if identity exists
+        if (voteBtn) {
+            voteBtn.textContent = 'Create (Initialize) Vote Account';
+            voteBtn.innerHTML = '<i class="fas fa-plus-circle"></i> Create (Initialize) Vote Account';
+            voteBtn.classList.remove('generate-btn');
+            voteBtn.classList.add('create-vote-btn');
+            
+            if (hasIdentityAccount) {
+                // Enable create functionality
+                voteBtn.disabled = false;
+                voteCard.classList.remove('disabled');
+                // Remove old event listener and add new one
+                voteBtn.replaceWith(voteBtn.cloneNode(true));
+                const newVoteBtn = document.getElementById('generateVoteBtn');
+                newVoteBtn.classList.add('create-vote-btn');
+                newVoteBtn.addEventListener('click', () => showCreateVoteAccountModal());
+            } else {
+                // Disable because no identity account
+                voteBtn.disabled = true;
+                voteCard.classList.add('disabled');
+                voteBtn.title = 'Please generate an Identity Account first';
+                // Remove click handler
+                voteBtn.replaceWith(voteBtn.cloneNode(true));
+                const newVoteBtn = document.getElementById('generateVoteBtn');
+                newVoteBtn.classList.add('create-vote-btn');
+                newVoteBtn.disabled = true;
+                newVoteBtn.title = 'Please generate an Identity Account first';
+            }
+        }
     } else {
-        if (voteBtn) voteBtn.disabled = false;
+        // No vote account generated yet - check identity requirement
         if (existingCount) {
             existingCount.textContent = 'No accounts';
             existingCount.classList.add('none');
         }
         if (voteCard) {
-            voteCard.classList.remove('disabled');
             voteCard.classList.remove('has-account');
         }
         if (generatedSection) generatedSection.style.display = 'none';
@@ -146,6 +176,36 @@ function updateVoteAccountsDisplay() {
         // Clear accounts list
         if (voteAccountsList) {
             voteAccountsList.innerHTML = '';
+        }
+        
+        // Set button to Generate Vote Account, but disable if no identity account
+        if (voteBtn) {
+            voteBtn.textContent = 'Generate Vote Account';
+            voteBtn.innerHTML = '<i class="fas fa-plus"></i> Generate Vote Account';
+            voteBtn.classList.remove('create-vote-btn');
+            voteBtn.classList.add('generate-btn');
+            
+            if (hasIdentityAccount) {
+                // Enable generation
+                voteBtn.disabled = false;
+                voteCard.classList.remove('disabled');
+                // Remove old event listener and add new one  
+                voteBtn.replaceWith(voteBtn.cloneNode(true));
+                const newVoteBtn = document.getElementById('generateVoteBtn');
+                newVoteBtn.classList.add('generate-btn');
+                newVoteBtn.addEventListener('click', () => showGenerationModal(ACCOUNT_TYPES.VOTE));
+            } else {
+                // Disable generation because no identity account
+                voteBtn.disabled = true;
+                voteCard.classList.add('disabled');
+                voteBtn.title = 'Please generate an Identity Account first';
+                // Remove click handler
+                voteBtn.replaceWith(voteBtn.cloneNode(true));
+                const newVoteBtn = document.getElementById('generateVoteBtn');
+                newVoteBtn.classList.add('generate-btn');
+                newVoteBtn.disabled = true;
+                newVoteBtn.title = 'Please generate an Identity Account first';
+            }
         }
     }
 }
@@ -589,16 +649,10 @@ function downloadCurrentKeypair(accountData = window.currentGeneratedAccount) {
         return;
     }
     
-    const keypairData = {
-        publicKey: accountData.publicKey,
-        secretKey: accountData.secretKey,
-        accountType: accountData.accountType,
-        derivationPath: accountData.derivationPath,
-        createdAt: accountData.createdAt
-    };
+    // Generate standard Solana keypair format (secretKey array only, single line)
+    const solanaKeypair = JSON.stringify(accountData.secretKey);
     
-    const dataStr = JSON.stringify(keypairData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const dataBlob = new Blob([solanaKeypair], { type: 'application/json' });
     
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
@@ -1097,6 +1151,345 @@ async function generateKeypairFromSeedAlternative(seedWords, derivationPath) {
     
     // Final fallback
     return generateKeypairFallback(seedPhrase, derivationPath);
+}
+
+// Show create vote account modal
+function showCreateVoteAccountModal() {
+    if (!walletConnected) {
+        showError('Please connect your wallet first');
+        return;
+    }
+    
+    if (!currentValidator.voteAccount) {
+        showError('Please generate a vote account keypair first');
+        return;
+    }
+    
+    // Check if identity account is required but not available
+    if (!currentValidator.identityAccount) {
+        showWarning('Please generate an Identity Account first. The Identity Account is required to authorize voting for your validator.');
+        return;
+    }
+    
+    const modal = document.getElementById('createVoteAccountModal');
+    const voteAccountKeyInput = document.getElementById('voteAccountKey');
+    const identityAccountKeyInput = document.getElementById('identityAccountKey');
+    const withdrawAuthorityKeyInput = document.getElementById('withdrawAuthorityKey');
+    
+    // Fill in vote account public key
+    if (voteAccountKeyInput) {
+        voteAccountKeyInput.value = currentValidator.voteAccount.publicKey;
+    }
+    
+    // Use generated identity account
+    if (identityAccountKeyInput && currentValidator.identityAccount) {
+        identityAccountKeyInput.value = currentValidator.identityAccount.publicKey;
+        identityAccountKeyInput.readOnly = true;
+        identityAccountKeyInput.classList.add('readonly-input');
+    }
+    
+    // Set withdraw authority to connected wallet
+    if (withdrawAuthorityKeyInput && connectedWalletAddress) {
+        withdrawAuthorityKeyInput.value = connectedWalletAddress;
+    }
+    
+    if (modal) modal.classList.remove('hidden');
+}
+
+// Hide create vote account modal
+function hideCreateVoteAccountModal() {
+    const modal = document.getElementById('createVoteAccountModal');
+    if (modal) modal.classList.add('hidden');
+}
+
+// Create vote account on-chain
+async function createVoteAccount() {
+    const voteAccountKey = document.getElementById('voteAccountKey').value;
+    const identityAccountKey = document.getElementById('identityAccountKey').value;
+    const withdrawAuthorityKey = document.getElementById('withdrawAuthorityKey').value;
+    const commission = document.getElementById('voteCommission').value;
+    
+    // Validation
+    if (!voteAccountKey) {
+        showError('Vote account public key is required');
+        return;
+    }
+    
+    if (!identityAccountKey) {
+        showError('Identity account public key is required');
+        return;
+    }
+    
+    // Check if we have the identity account keypair
+    if (!currentValidator.identityAccount || 
+        !currentValidator.identityAccount.secretKey || 
+        currentValidator.identityAccount.publicKey !== identityAccountKey) {
+        showError('Identity account keypair not found. Please generate an Identity Account first.');
+        return;
+    }
+    
+    if (!withdrawAuthorityKey) {
+        showError('Withdraw authority is required');
+        return;
+    }
+    
+    if (!walletConnected || !connectedWalletAddress) {
+        showError('Please connect your wallet first');
+        return;
+    }
+    
+    try {
+        showInfo('Creating vote account transaction...', true);
+        
+        // Validate commission (0-100%)
+        const commissionValue = parseFloat(commission);
+        if (isNaN(commissionValue) || commissionValue < 0 || commissionValue > 100) {
+            showError('Commission must be between 0 and 100');
+            return;
+        }
+        
+        // Create public keys
+        const voteAccountPubkey = new solanaWeb3.PublicKey(voteAccountKey);
+        const identityPubkey = new solanaWeb3.PublicKey(identityAccountKey);
+        const withdrawAuthorityPubkey = new solanaWeb3.PublicKey(withdrawAuthorityKey);
+        const payerPubkey = new solanaWeb3.PublicKey(connectedWalletAddress);
+        
+        // Get vote account keypair from stored data
+        if (!currentValidator.voteAccount || !currentValidator.voteAccount.secretKey) {
+            showError('Vote account secret key not found. Please regenerate vote account.');
+            return;
+        }
+        
+        // Create vote account keypair from stored secret key
+        const voteAccountKeypair = solanaWeb3.Keypair.fromSecretKey(
+            new Uint8Array(currentValidator.voteAccount.secretKey)
+        );
+        
+        // Verify the public keys match
+        if (voteAccountKeypair.publicKey.toString() !== voteAccountKey) {
+            showError('Vote account keypair mismatch. Please regenerate vote account.');
+            return;
+        }
+        
+        // Calculate rent exemption amount
+        const rentExemptAmount = await connection.getMinimumBalanceForRentExemption(3762); // Vote account space
+        
+        console.log('Creating vote account with:', {
+            voteAccount: voteAccountKey,
+            identity: identityAccountKey,
+            withdrawAuthority: withdrawAuthorityKey,
+            commission: commissionValue,
+            rentAmount: rentExemptAmount
+        });
+        
+        // Create vote account instruction
+        const createVoteAccountInstruction = solanaWeb3.VoteProgram.createAccount({
+            fromPubkey: payerPubkey,
+            votePubkey: voteAccountPubkey,
+            voteInit: {
+                nodePubkey: identityPubkey,
+                authorizedVoter: identityPubkey,
+                authorizedWithdrawer: withdrawAuthorityPubkey,
+                commission: Math.round(commissionValue), // Commission as percentage (0-100)
+            },
+            lamports: rentExemptAmount
+        });
+        
+        // Create transaction
+        const transaction = new solanaWeb3.Transaction();
+        transaction.add(createVoteAccountInstruction);
+        
+        // Get recent blockhash
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = payerPubkey;
+        
+        console.log('Vote account transaction prepared');
+        
+        // Request wallet to sign and send transaction with additional signers
+        showInfo('Please approve the transaction in your wallet...', true);
+        
+        let signature;
+        try {
+            // Similar to manage_account.js - separate signing and sending
+            console.log('Requesting wallet signature for vote account creation...');
+            
+            // Step 1: First sign with the vote account keypair (offline)
+            transaction.partialSign(voteAccountKeypair);
+            console.log('Vote account keypair signed transaction');
+            
+            // Step 2: Sign with identity account keypair (offline) - required for authorizedVoter
+            const identityKeypair = solanaWeb3.Keypair.fromSecretKey(
+                new Uint8Array(currentValidator.identityAccount.secretKey)
+            );
+            transaction.partialSign(identityKeypair);
+            console.log('Identity account keypair signed transaction');
+            
+            // Step 3: Then sign with wallet (this will add the payer signature)
+            const signedTransaction = await wallet.signTransaction(transaction);
+            console.log('Wallet signed transaction successfully');
+            
+            // Step 4: Send signed transaction
+            signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+                skipPreflight: false,
+                preflightCommitment: 'confirmed',
+                maxRetries: 3,
+            });
+            
+            console.log('Vote account creation transaction sent with signature:', signature);
+            
+        } catch (walletError) {
+            // Handle "Plugin Closed" error specifically (similar to manage_account.js)
+            if (walletError.message && walletError.message.includes('Plugin Closed')) {
+                console.log('Plugin closed error detected, checking if vote account was created...');
+                
+                // Wait a bit for potential transaction to be processed
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                // Try to check if vote account was created by checking its existence
+                try {
+                    const voteAccountInfo = await connection.getAccountInfo(voteAccountPubkey);
+                    
+                    if (voteAccountInfo && voteAccountInfo.data && voteAccountInfo.data.length > 0) {
+                        console.log('Vote account exists, transaction likely successful');
+                        
+                        // Show success message without transaction link
+                        showSuccess('✅ Vote account creation appears successful! The account has been created. Please check your wallet for confirmation.');
+                        
+                        // Hide modal
+                        hideCreateVoteAccountModal();
+                        
+                        // Update vote account card status to disabled
+                        updateVoteAccountCardStatus();
+                        return; // Exit successfully
+                    } else {
+                        console.log('Vote account does not exist, transaction may have failed');
+                        throw new Error('Transaction may have failed - vote account was not created after wallet plugin closed');
+                    }
+                } catch (accountCheckError) {
+                    console.error('Failed to check vote account existence:', accountCheckError);
+                    throw new Error('Wallet plugin closed during signing. Please check your wallet history to verify if the vote account was created.');
+                }
+            } else {
+                throw walletError; // Re-throw other wallet errors
+            }
+        }
+
+        if (signature) {
+            console.log('Vote account created successfully! Signature:', signature);
+            
+            // Wait for confirmation
+            showInfo('Confirming transaction...', true);
+            
+            try {
+                // Wait for confirmation with timeout
+                const confirmationPromise = connection.confirmTransaction(signature, 'confirmed');
+
+                // Add timeout to avoid waiting forever
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Transaction confirmation timeout')), 45000)
+                );
+
+                const confirmation = await Promise.race([confirmationPromise, timeoutPromise]);
+                
+                if (confirmation.value && confirmation.value.err) {
+                    throw new Error('Transaction failed: ' + confirmation.value.err);
+                }
+
+                console.log('Transaction confirmed:', confirmation);
+
+                // Success
+                const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                showSuccess(`✅ Vote account created successfully! ${explorerUrl}`);
+        
+                // Hide modal
+                hideCreateVoteAccountModal();
+                
+                // Update vote account card status to disabled (like identity account after creation)
+                updateVoteAccountCardStatus();
+                
+            } catch (confirmationError) {
+                if (confirmationError.message.includes('timeout')) {
+                    // Even if confirmation times out, check if the account was created
+                    try {
+                        const voteAccountInfo = await connection.getAccountInfo(voteAccountPubkey);
+                        if (voteAccountInfo && voteAccountInfo.data && voteAccountInfo.data.length > 0) {
+                            const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                            showWarning(`⚠️ Transaction confirmation timeout, but vote account appears to have been created. Please verify: ${explorerUrl}`);
+                            hideCreateVoteAccountModal();
+                            updateVoteAccountCardStatus();
+                        } else {
+                            const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                            showWarning(`⚠️ Transaction confirmation timeout. Please check the transaction status: ${explorerUrl}`);
+                            hideCreateVoteAccountModal();
+                        }
+                    } catch (accountCheckError) {
+                        const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                        showWarning(`⚠️ Transaction confirmation timeout. Please check the transaction status: ${explorerUrl}`);
+                        hideCreateVoteAccountModal();
+                    }
+                } else {
+                    throw confirmationError;
+                }
+            }
+        }
+        
+    } catch (error) {
+        console.error('Failed to create vote account:', error);
+        
+        // Handle specific error types
+        let errorMessage = 'Failed to create vote account: ';
+        
+        if (error.message && error.message.includes('Plugin Closed')) {
+            errorMessage = 'Wallet plugin was closed during signing. Please check your wallet history to verify if the vote account was created successfully.';
+        } else if (error.message && error.message.includes('vote account was not created')) {
+            errorMessage = 'Transaction may have failed - the vote account was not created. Please check your wallet for any error messages.';
+        } else if (error.message && error.message.includes('User rejected') || error.message && error.message.includes('rejected')) {
+            errorMessage = 'Transaction was rejected by user';
+        } else if (error.message && error.message.includes('insufficient funds') || error.message && error.message.includes('Insufficient')) {
+            errorMessage = 'Insufficient funds for transaction fees and rent';
+        } else if (error.message && error.message.includes('blockhash not found')) {
+            errorMessage = 'Network error, please try again';
+        } else if (error.message && error.message.includes('Invalid public key')) {
+            errorMessage = 'Invalid account address format';
+        } else if (error.message && error.message.includes('0x1')) {
+            errorMessage = 'Insufficient account balance for transaction fees and rent';
+        } else {
+            errorMessage += error.message || 'Unknown error occurred';
+        }
+        
+        showError(errorMessage);
+    }
+}
+
+// Update vote account card status to disabled after successful creation
+function updateVoteAccountCardStatus() {
+    const voteCard = document.querySelector('.account-type-card[data-type="vote"]');
+    const voteBtn = document.getElementById('generateVoteBtn');
+    
+    if (voteCard) {
+        voteCard.classList.add('disabled');
+        voteCard.classList.add('has-account');
+        voteCard.classList.add('vote-created'); // Special class for created vote account
+    }
+    
+    if (voteBtn) {
+        voteBtn.disabled = true;
+        voteBtn.textContent = 'Vote Account Created';
+        voteBtn.innerHTML = '<i class="fas fa-check-circle"></i> Vote Account Created';
+        voteBtn.classList.remove('create-vote-btn');
+        voteBtn.classList.add('account-created-btn');
+        
+        // Remove click handler
+        voteBtn.onclick = null;
+    }
+    
+    // Update existing accounts display
+    const existingCount = document.querySelector('[data-type="vote"] .existing-accounts');
+    if (existingCount) {
+        existingCount.textContent = '1 account created and initialized';
+        existingCount.classList.remove('none');
+    }
 }
 
 // Initialize when page loads

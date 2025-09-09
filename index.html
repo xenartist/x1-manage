@@ -531,6 +531,62 @@
         </div>
     </div>
 
+    <!-- Create Vote Account Modal -->
+    <div id="createVoteAccountModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-plus-circle"></i> Create (Initialize) Vote Account</h3>
+                <button class="modal-close" onclick="hideCreateVoteAccountModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="voteAccountKey">Vote Account Public Key:</label>
+                    <input type="text" id="voteAccountKey" class="readonly-input" readonly>
+                    <small>This is the vote account keypair you generated</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="identityAccountKey">Identity Account Public Key:</label>
+                    <input type="text" id="identityAccountKey" placeholder="Enter identity account public key">
+                    <small>The validator identity that will authorize voting</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="withdrawAuthorityKey">Withdraw Authority:</label>
+                    <input type="text" id="withdrawAuthorityKey" class="readonly-input" readonly>
+                    <small>Connected wallet will be set as withdraw authority</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="voteCommission">Commission (%):</label>
+                    <input type="number" id="voteCommission" min="0" max="100" step="0.01" value="10" placeholder="10">
+                    <small>Percentage of rewards taken as commission (0-100%)</small>
+                </div>
+                
+                <div class="info-section">
+                    <div class="info-card">
+                        <h4><i class="fas fa-info-circle"></i> Transaction Information</h4>
+                        <p>This will create a vote account on the X1 network. You'll need:</p>
+                        <ul>
+                            <li>~0.02 XNT for vote account rent</li>
+                            <li>Small amount for transaction fees</li>
+                            <li>Connected wallet will pay for the transaction</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="hideCreateVoteAccountModal()">Cancel</button>
+                <button class="btn-confirm" onclick="createVoteAccount()">
+                    <i class="fas fa-plus-circle"></i>
+                    Create Vote Account
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Seed Verification Modal -->
     <div id="seedVerificationModal" class="modal hidden">
         <div class="modal-content seed-verification-modal">
