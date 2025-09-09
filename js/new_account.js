@@ -416,7 +416,7 @@ async function generateAccount() {
         await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate work
         
         const seed = generateRecoverySeed();
-        console.log('✅ Generated BIP39 seed:', seed);
+        console.log('✅ BIP39 seed generated successfully');
         updateProgressStep('seed', 'completed');
         
         // Step 2: Generate keypair from seed + derivation path
@@ -1029,9 +1029,7 @@ async function generateKeypairFromSeed(seedWords, derivationPath) {
             console.log('✅ Converted seed to hex format, length:', seedHex.length);
             
             const derived = derivePath(derivationPath, seedHex);
-            console.log('✅ Derived key object:', derived);
-            console.log('✅ Derived key type:', typeof derived.key);
-            console.log('✅ Derived key value:', derived.key);
+            console.log('✅ Key derivation completed successfully');
             
             // Step 4: Create Solana keypair from derived key
             let privateKeyBytes;
@@ -1052,7 +1050,7 @@ async function generateKeypairFromSeed(seedWords, derivationPath) {
                 privateKeyBytes = new Uint8Array(Object.values(derived.key));
             }
             
-            console.log('✅ Private key bytes length:', privateKeyBytes.length);
+            console.log('✅ Private key processing completed');
             
             // Use first 32 bytes as seed for Solana keypair
             const keypair = solanaWeb3.Keypair.fromSeed(privateKeyBytes.slice(0, 32));
