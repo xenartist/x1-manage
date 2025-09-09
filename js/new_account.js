@@ -264,6 +264,7 @@ function hideGenerationModal() {
 }
 
 // Reset modal state
+// Reset modal state
 function resetModalState() {
     const generateBtn = document.getElementById('generateAccountBtn');
     const progressSection = document.getElementById('generationProgress');
@@ -274,7 +275,25 @@ function resetModalState() {
         generateBtn.disabled = false;
         generateBtn.classList.remove('loading', 'success');
         generateBtn.innerHTML = '<i class="fas fa-plus"></i> Generate Account';
+        generateBtn.onclick = generateAccount;
     }
+    
+    // Reset progress steps to initial state
+    const progressSteps = document.querySelectorAll('.progress-step');
+    progressSteps.forEach(step => {
+        const stepId = step.getAttribute('data-step');
+        step.className = 'progress-step'; // Remove active/completed classes
+        
+        // Reset icons to original state
+        const icon = step.querySelector('i');
+        if (stepId === 'generating') {
+            icon.className = 'fas fa-key';
+        } else if (stepId === 'seed') {
+            icon.className = 'fas fa-seedling';
+        } else if (stepId === 'creating') {
+            icon.className = 'fas fa-plus-circle';
+        }
+    });
     
     if (progressSection) progressSection.style.display = 'none';
     if (formSection) formSection.style.display = 'block';
