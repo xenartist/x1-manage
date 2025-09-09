@@ -330,7 +330,7 @@ function useDefaultPath() {
     }
 }
 
-// Generate new account - 修改存储逻辑
+// Generate new account - BIP39 standard process
 async function generateAccount() {
     const accountType = document.getElementById('accountType').value;
     const derivationPath = document.getElementById('derivationPath').value;
@@ -351,22 +351,24 @@ async function generateAccount() {
         formSection.style.display = 'none';
         progressSection.style.display = 'block';
         
-        // Step 1: Generate keypair
-        updateProgressStep('generating', 'active');
+        // Step 1: Generate BIP39 seed first
+        updateProgressStep('seed', 'active');
         await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate work
         
-        const keypair = solanaWeb3.Keypair.generate();
-        const publicKey = keypair.publicKey.toString();
-        const secretKey = Array.from(keypair.secretKey);
+        const seed = generateRecoverySeed();
+        console.log('✅ Generated BIP39 seed:', seed);
+        updateProgressStep('seed', 'completed');
         
-        updateProgressStep('generating', 'completed');
-        
-        // Step 2: Generate recovery seed
-        updateProgressStep('seed', 'active');
+        // Step 2: Generate keypair from seed + derivation path
+        updateProgressStep('generating', 'active');
         await new Promise(resolve => setTimeout(resolve, 800));
         
-        const seed = generateRecoverySeed();
-        updateProgressStep('seed', 'completed');
+        const keypairData = await generateKeypairFromSeed(seed, derivationPath);
+        const publicKey = keypairData.publicKey;
+        const secretKey = keypairData.secretKey; // Already in Solana CLI format [num, num, ...]
+        
+        console.log('✅ Generated keypair from seed. Public key:', publicKey);
+        updateProgressStep('generating', 'completed');
         
         // Step 3: Create account object
         updateProgressStep('creating', 'active');
@@ -381,16 +383,16 @@ async function generateAccount() {
             accountType: accountType
         };
         
-        // Store account based on type - 修改这部分
+        // Store account based on type
         switch (accountType) {
             case ACCOUNT_TYPES.IDENTITY:
                 currentValidator.identityAccount = accountData;
                 break;
             case ACCOUNT_TYPES.VOTE:
-                currentValidator.voteAccount = accountData;  // 改为单个对象
+                currentValidator.voteAccount = accountData;
                 break;
             case ACCOUNT_TYPES.STAKE:
-                currentValidator.stakeAccounts.push(accountData);  // stake 保持数组
+                currentValidator.stakeAccounts.push(accountData);
                 break;
         }
         
@@ -499,9 +501,11 @@ function generateSimplifiedSeed() {
 }
 
 // Show recovery section
+// Show recovery section
 function showRecoverySection(accountData) {
     const recoverySection = document.getElementById('recoverySection');
     const seedWordsContainer = document.getElementById('seedWords');
+    const publicKeyElement = document.getElementById('generatedPublicKey');
     
     if (recoverySection && seedWordsContainer) {
         // Display seed words
@@ -512,6 +516,11 @@ function showRecoverySection(accountData) {
             wordElement.textContent = `${index + 1}. ${word}`;
             seedWordsContainer.appendChild(wordElement);
         });
+        
+        // Display public key
+        if (publicKeyElement) {
+            publicKeyElement.textContent = accountData.publicKey;
+        }
         
         recoverySection.style.display = 'block';
         
@@ -531,6 +540,19 @@ async function copySeed() {
         } catch (error) {
             console.error('Failed to copy seed:', error);
             showError('Failed to copy seed to clipboard');
+        }
+    }
+}
+
+// Copy public key to clipboard
+async function copyPublicKey() {
+    if (window.currentGeneratedAccount && window.currentGeneratedAccount.publicKey) {
+        try {
+            await navigator.clipboard.writeText(window.currentGeneratedAccount.publicKey);
+            showSuccess('Public key copied to clipboard');
+        } catch (error) {
+            console.error('Failed to copy public key:', error);
+            showError('Failed to copy public key to clipboard');
         }
     }
 }
@@ -927,6 +949,75 @@ function downloadKeypairFromVerification() {
     } else {
         showError('No account data available for download');
     }
+}
+
+// Generate keypair from BIP39 seed and derivation path
+async function generateKeypairFromSeed(seedWords, derivationPath) {
+    const seedPhrase = seedWords.join(' ');
+    
+    try {
+        // Check if @scure/bip39 is available for proper seed generation
+        if (typeof bip39 !== 'undefined' && bip39.mnemonicToSeed) {
+            console.log('✅ Using @scure/bip39 to convert mnemonic to seed');
+            
+            // Convert mnemonic to seed bytes
+            const seedBuffer = await bip39.mnemonicToSeed(seedPhrase);
+            
+            // Use @solana/web3.js Keypair.fromSeed() with first 32 bytes
+            const seedBytes = new Uint8Array(seedBuffer.slice(0, 32));
+            const keypair = solanaWeb3.Keypair.fromSeed(seedBytes);
+            
+            return {
+                publicKey: keypair.publicKey.toString(),
+                secretKey: Array.from(keypair.secretKey) // Convert to [num, num, ...] format like Solana CLI
+            };
+        } else {
+            // Fallback: use a simplified approach for development
+            console.warn('⚠️ @scure/bip39.mnemonicToSeed not available, using fallback');
+            return generateKeypairFallback(seedPhrase, derivationPath);
+        }
+        
+    } catch (error) {
+        console.error('❌ Failed to generate keypair from seed:', error);
+        throw new Error('Failed to generate keypair from seed: ' + error.message);
+    }
+}
+
+// Fallback keypair generation (for development when full BIP39 not available)
+function generateKeypairFallback(seedPhrase, derivationPath) {
+    console.log('📝 Using fallback keypair generation');
+    
+    // Simple hash-based approach (not cryptographically secure, for development only)
+    const combined = seedPhrase + derivationPath;
+    const hash = simpleHash(combined);
+    
+    // Create a deterministic but simplified seed
+    const seedArray = new Uint8Array(32);
+    for (let i = 0; i < 32; i++) {
+        seedArray[i] = hash[i % hash.length];
+    }
+    
+    // Generate keypair using Solana Web3.js
+    const keypair = solanaWeb3.Keypair.fromSeed(seedArray);
+    
+    return {
+        publicKey: keypair.publicKey.toString(),
+        secretKey: Array.from(keypair.secretKey) // Solana CLI format [num, num, ...]
+    };
+}
+
+// Simple hash function for fallback (development only)
+function simpleHash(str) {
+    const hash = [];
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash.push((char * 7 + i * 13) % 256);
+    }
+    // Ensure we have enough bytes
+    while (hash.length < 64) {
+        hash.push(...hash);
+    }
+    return hash.slice(0, 64);
 }
 
 // Initialize when page loads

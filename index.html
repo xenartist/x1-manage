@@ -432,13 +432,13 @@
                             <div id="generationProgress" class="generation-progress" style="display: none;">
                                 <h4>Generating Account...</h4>
                                 <div class="progress-steps">
-                                    <div class="progress-step" data-step="generating">
-                                        <i class="fas fa-key"></i>
-                                        <span>Generating Keypair</span>
-                                    </div>
                                     <div class="progress-step" data-step="seed">
                                         <i class="fas fa-seedling"></i>
                                         <span>Creating Recovery Seed</span>
+                                    </div>
+                                    <div class="progress-step" data-step="generating">
+                                        <i class="fas fa-key"></i>
+                                        <span>Generating Keypair</span>
                                     </div>
                                     <div class="progress-step" data-step="creating">
                                         <i class="fas fa-plus-circle"></i>
@@ -458,6 +458,17 @@
                                         <button class="action-btn copy-btn" onclick="copySeed()">
                                             <i class="fas fa-copy"></i>
                                             Copy Seed
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Public Key Display -->
+                                <div class="public-key-section">
+                                    <h5><i class="fas fa-key"></i> Generated Public Key</h5>
+                                    <div class="public-key-display">
+                                        <div id="generatedPublicKey" class="public-key-address"></div>
+                                        <button class="action-btn copy-btn" onclick="copyPublicKey()">
+                                            <i class="fas fa-copy"></i>
                                         </button>
                                     </div>
                                 </div>
