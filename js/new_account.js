@@ -60,10 +60,12 @@ function updateAccountTypesDisplay() {
 }
 
 // Update identity account display
+// Update identity account display
 function updateIdentityAccountDisplay() {
     const identityCard = document.querySelector('.account-type-card[data-type="identity"]');
     const identityBtn = document.getElementById('generateIdentityBtn');
     const existingCount = document.querySelector('[data-type="identity"] .existing-accounts');
+    const identityAccountsList = document.getElementById('identityAccountsList');
     const generatedSection = document.querySelector('[data-type="identity"] .generated-accounts');
     
     if (currentValidator.identityAccount) {
@@ -77,6 +79,13 @@ function updateIdentityAccountDisplay() {
             identityCard.classList.add('has-account');
         }
         if (generatedSection) generatedSection.style.display = 'block';
+        
+        // Update accounts list
+        if (identityAccountsList) {
+            identityAccountsList.innerHTML = '';
+            const accountElement = createAccountElement(currentValidator.identityAccount, ACCOUNT_TYPES.IDENTITY, 0);
+            identityAccountsList.appendChild(accountElement);
+        }
     } else {
         if (identityBtn) identityBtn.disabled = false;
         if (existingCount) {
@@ -88,6 +97,11 @@ function updateIdentityAccountDisplay() {
             identityCard.classList.remove('has-account');
         }
         if (generatedSection) generatedSection.style.display = 'none';
+        
+        // Clear accounts list
+        if (identityAccountsList) {
+            identityAccountsList.innerHTML = '';
+        }
     }
 }
 
