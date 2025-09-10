@@ -31,6 +31,9 @@ function initializeNewAccount() {
     
     // Update UI based on wallet connection status
     updateAuthorityDisplay();
+    
+    // Ensure import buttons have event listeners
+    ensureImportButtonListeners();
 }
 
 // Initialize generation buttons
@@ -38,6 +41,7 @@ function initializeGenerationButtons() {
     const identityBtn = document.getElementById('generateIdentityBtn');
     const importIdentityBtn = document.getElementById('importIdentityBtn');
     const voteBtn = document.getElementById('generateVoteBtn');
+    const importVoteBtn = document.getElementById('importVoteBtn');
     const stakeBtn = document.getElementById('generateStakeBtn');
     
     if (identityBtn) {
@@ -50,6 +54,10 @@ function initializeGenerationButtons() {
     
     if (voteBtn) {
         voteBtn.addEventListener('click', () => showGenerationModal(ACCOUNT_TYPES.VOTE));
+    }
+    
+    if (importVoteBtn) {
+        importVoteBtn.addEventListener('click', () => showImportVoteModal());
     }
     
     if (stakeBtn) {
@@ -129,22 +137,35 @@ function updateIdentityAccountDisplay() {
 function updateVoteAccountsDisplay() {
     const voteCard = document.querySelector('.account-type-card[data-type="vote"]');
     const voteBtn = document.getElementById('generateVoteBtn');
+    const importVoteBtn = document.getElementById('importVoteBtn');
     const existingCount = document.querySelector('[data-type="vote"] .existing-accounts');
     const voteAccountsList = document.getElementById('voteAccountsList');
     const generatedSection = document.querySelector('[data-type="vote"] .generated-accounts');
     
-    // Check if identity account exists - required for ALL vote account operations
+    // Check if identity account exists - required ONLY for generate/create vote account operations
     const hasIdentityAccount = currentValidator.identityAccount && currentValidator.identityAccount.publicKey;
     
     if (currentValidator.voteAccount) {
+        // Vote account exists - disable both buttons
+        if (voteBtn) voteBtn.disabled = true;
+        if (importVoteBtn) importVoteBtn.disabled = true;
         if (existingCount) {
-            existingCount.textContent = '1 account created';
+            const accountType = currentValidator.voteAccount.imported ? 'imported' : 'created';
+            existingCount.textContent = `1 account ${accountType}`;
             existingCount.classList.remove('none');
         }
         if (voteCard) {
+            voteCard.classList.add('disabled');
             voteCard.classList.add('has-account');
         }
         if (generatedSection) generatedSection.style.display = 'block';
+        
+        // Update section title based on whether account was imported or generated
+        const generatedSectionTitle = document.querySelector('[data-type="vote"] .generated-accounts h4');
+        if (generatedSectionTitle) {
+            const titleText = currentValidator.voteAccount.imported ? 'Imported Account:' : 'Generated Account:';
+            generatedSectionTitle.textContent = titleText;
+        }
         
         // Update accounts list
         if (voteAccountsList) {
@@ -163,7 +184,6 @@ function updateVoteAccountsDisplay() {
             if (hasIdentityAccount) {
                 // Enable create functionality
                 voteBtn.disabled = false;
-                voteCard.classList.remove('disabled');
                 // Remove old event listener and add new one
                 voteBtn.replaceWith(voteBtn.cloneNode(true));
                 const newVoteBtn = document.getElementById('generateVoteBtn');
@@ -172,7 +192,6 @@ function updateVoteAccountsDisplay() {
             } else {
                 // Disable because no identity account
                 voteBtn.disabled = true;
-                voteCard.classList.add('disabled');
                 voteBtn.title = 'Please generate an Identity Account first';
                 // Remove click handler
                 voteBtn.replaceWith(voteBtn.cloneNode(true));
@@ -183,7 +202,7 @@ function updateVoteAccountsDisplay() {
             }
         }
     } else {
-        // No vote account generated yet - check identity requirement
+        // No vote account exists
         if (existingCount) {
             existingCount.textContent = 'No accounts';
             existingCount.classList.add('none');
@@ -198,7 +217,7 @@ function updateVoteAccountsDisplay() {
             voteAccountsList.innerHTML = '';
         }
         
-        // Set button to Generate Vote Account, but disable if no identity account
+        // Generate Vote Account button - depends on identity account
         if (voteBtn) {
             voteBtn.textContent = 'Generate Vote Account';
             voteBtn.innerHTML = '<i class="fas fa-plus"></i> Generate Vote Account';
@@ -225,6 +244,17 @@ function updateVoteAccountsDisplay() {
                 newVoteBtn.classList.add('generate-btn');
                 newVoteBtn.disabled = true;
                 newVoteBtn.title = 'Please generate an Identity Account first';
+            }
+        }
+        
+        // Import Vote Account button - does NOT depend on identity account
+        if (importVoteBtn) {
+            importVoteBtn.disabled = false;
+            importVoteBtn.title = '';
+            // Ensure event listener is attached (in case it was lost)
+            if (!importVoteBtn.hasAttribute('data-listener-attached')) {
+                importVoteBtn.addEventListener('click', () => showImportVoteModal());
+                importVoteBtn.setAttribute('data-listener-attached', 'true');
             }
         }
     }
@@ -1628,7 +1658,7 @@ function resetImportModalState() {
 
 // Handle import method selection
 document.addEventListener('DOMContentLoaded', function() {
-    // Method selection event listeners
+    // Method selection event listeners for both identity and vote import modals
     const methodOptions = document.querySelectorAll('.method-option');
     methodOptions.forEach(option => {
         option.addEventListener('click', function() {
@@ -1638,13 +1668,19 @@ document.addEventListener('DOMContentLoaded', function() {
             // Update radio button
             radio.checked = true;
             
-            // Update active states
-            methodOptions.forEach(opt => opt.classList.remove('active'));
+            // Update active states within the same modal
+            const modal = this.closest('.modal');
+            const modalMethodOptions = modal.querySelectorAll('.method-option');
+            modalMethodOptions.forEach(opt => opt.classList.remove('active'));
             this.classList.add('active');
             
-            // Show/hide sections
-            const seedSection = document.getElementById('seedImportSection');
-            const keypairSection = document.getElementById('keypairImportSection');
+            // Show/hide sections based on modal
+            const isVoteModal = modal.id === 'importVoteModal';
+            const seedSectionId = isVoteModal ? 'voteSeedImportSection' : 'seedImportSection';
+            const keypairSectionId = isVoteModal ? 'voteKeypairImportSection' : 'keypairImportSection';
+            
+            const seedSection = document.getElementById(seedSectionId);
+            const keypairSection = document.getElementById(keypairSectionId);
             
             if (method === 'seed') {
                 if (seedSection) seedSection.classList.remove('hidden');
@@ -1656,10 +1692,15 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // File input change handler
+    // File input change handlers for both identity and vote
     const keypairFileInput = document.getElementById('keypairFile');
     if (keypairFileInput) {
         keypairFileInput.addEventListener('change', handleKeypairFileSelect);
+    }
+    
+    const voteKeypairFileInput = document.getElementById('voteKeypairFile');
+    if (voteKeypairFileInput) {
+        voteKeypairFileInput.addEventListener('change', handleVoteKeypairFileSelect);
     }
 });
 
@@ -2539,3 +2580,331 @@ async function createStakeAccount() {
 }
 
 console.log('New Account JS loaded successfully');
+
+// Show import vote account modal
+function showImportVoteModal() {
+    if (currentValidator.voteAccount) {
+        showWarning('Vote account already exists. Only one vote account is allowed.');
+        return;
+    }
+    
+    const modal = document.getElementById('importVoteModal');
+    if (modal) {
+        // Reset modal state
+        resetImportVoteModalState();
+        modal.classList.remove('hidden');
+    }
+}
+
+// Hide import vote account modal
+function hideImportVoteModal() {
+    const modal = document.getElementById('importVoteModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        resetImportVoteModalState();
+    }
+}
+
+// Reset import vote modal state
+function resetImportVoteModalState() {
+    // Reset method selection
+    const seedMethodOption = document.querySelector('#importVoteModal .method-option[data-method="seed"]');
+    const keypairMethodOption = document.querySelector('#importVoteModal .method-option[data-method="keypair"]');
+    const seedRadio = document.querySelector('input[name="importVoteMethod"][value="seed"]');
+    const keypairRadio = document.querySelector('input[name="importVoteMethod"][value="keypair"]');
+    
+    if (seedMethodOption) seedMethodOption.classList.add('active');
+    if (keypairMethodOption) keypairMethodOption.classList.remove('active');
+    if (seedRadio) seedRadio.checked = true;
+    if (keypairRadio) keypairRadio.checked = false;
+    
+    // Show seed section, hide keypair section
+    const seedSection = document.getElementById('voteSeedImportSection');
+    const keypairSection = document.getElementById('voteKeypairImportSection');
+    if (seedSection) seedSection.classList.remove('hidden');
+    if (keypairSection) keypairSection.classList.add('hidden');
+    
+    // Clear inputs
+    const seedInput = document.getElementById('voteSeedInput');
+    const derivationPath = document.getElementById('importVoteDerivationPath');
+    const keypairFile = document.getElementById('voteKeypairFile');
+    const keypairText = document.getElementById('voteKeypairText');
+    
+    if (seedInput) seedInput.value = '';
+    if (derivationPath) derivationPath.value = "m/44'/501'/0'/0'";
+    if (keypairFile) {
+        keypairFile.value = '';
+        keypairFile.removeAttribute('data-file-loaded');
+    }
+    if (keypairText) keypairText.value = '';
+    
+    // Hide file preview
+    const filePreview = document.getElementById('voteFilePreview');
+    if (filePreview) filePreview.classList.add('hidden');
+    
+    // Reset button state
+    const importBtn = document.getElementById('importVoteAccountBtn');
+    if (importBtn) {
+        importBtn.disabled = false;
+        importBtn.classList.remove('loading');
+        importBtn.innerHTML = '<i class="fas fa-upload"></i> Import Vote Account';
+    }
+}
+
+// Use default vote import derivation path
+function useDefaultVoteImportPath() {
+    const derivationInput = document.getElementById('importVoteDerivationPath');
+    if (derivationInput) {
+        derivationInput.value = DEFAULT_DERIVATION_PATH;
+    }
+}
+
+// Clear vote keypair file
+function clearVoteKeypairFile() {
+    const keypairFile = document.getElementById('voteKeypairFile');
+    const filePreview = document.getElementById('voteFilePreview');
+    
+    if (keypairFile) {
+        keypairFile.value = '';
+        keypairFile.removeAttribute('data-file-loaded');
+    }
+    if (filePreview) filePreview.classList.add('hidden');
+}
+
+// Import vote account
+async function importVoteAccount() {
+    const importBtn = document.getElementById('importVoteAccountBtn');
+    const selectedMethod = document.querySelector('input[name="importVoteMethod"]:checked').value;
+    
+    try {
+        // Update UI
+        if (importBtn) {
+            importBtn.disabled = true;
+            importBtn.classList.add('loading');
+            importBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing...';
+        }
+        
+        let accountData;
+        
+        if (selectedMethod === 'seed') {
+            accountData = await importVoteFromSeed();
+        } else if (selectedMethod === 'keypair') {
+            accountData = await importVoteFromKeypair();
+        }
+        
+        if (accountData) {
+            // Verify the vote account is initialized on-chain
+            const isInitialized = await verifyVoteAccountInitialized(accountData.publicKey);
+            
+            if (!isInitialized) {
+                throw new Error('This vote account has not been initialized on-chain yet. Only initialized vote accounts can be imported.');
+            }
+            
+            // Store imported account
+            currentValidator.voteAccount = accountData;
+            
+            // Update display
+            updateVoteAccountsDisplay();
+            
+            // Close modal
+            hideImportVoteModal();
+            
+            showSuccess('Vote account imported successfully!');
+        }
+        
+    } catch (error) {
+        console.error('Failed to import vote account:', error);
+        showError('Failed to import vote account: ' + error.message);
+    } finally {
+        // Reset button state
+        if (importBtn) {
+            importBtn.disabled = false;
+            importBtn.classList.remove('loading');
+            importBtn.innerHTML = '<i class="fas fa-upload"></i> Import Vote Account';
+        }
+    }
+}
+
+// Verify vote account is initialized on-chain
+async function verifyVoteAccountInitialized(publicKey) {
+    try {
+        const voteAccountPubkey = new solanaWeb3.PublicKey(publicKey);
+        const accountInfo = await connection.getAccountInfo(voteAccountPubkey);
+        
+        if (!accountInfo) {
+            throw new Error('Vote account does not exist on-chain');
+        }
+        
+        // Check if account is owned by Vote Program
+        const voteProgram = 'Vote111111111111111111111111111111111111111';
+        if (accountInfo.owner.toString() !== voteProgram) {
+            throw new Error('Account is not a valid vote account (not owned by Vote Program)');
+        }
+        
+        // If we reach here, it's a valid initialized vote account
+        return true;
+        
+    } catch (error) {
+        console.error('Vote account verification failed:', error);
+        throw error;
+    }
+}
+
+// Import vote from seed
+async function importVoteFromSeed() {
+    const seedInput = document.getElementById('voteSeedInput');
+    const derivationPath = document.getElementById('importVoteDerivationPath');
+    
+    if (!seedInput || !derivationPath) {
+        throw new Error('Required input fields not found');
+    }
+    
+    const seedText = seedInput.value.trim();
+    const derivationPathValue = derivationPath.value.trim();
+    
+    if (!seedText) {
+        throw new Error('Please enter your recovery seed phrase');
+    }
+    
+    if (!derivationPathValue) {
+        throw new Error('Please enter a derivation path');
+    }
+    
+    // Validate and parse seed
+    const seedWords = seedText.split(/\s+/).filter(word => word.length > 0);
+    
+    if (seedWords.length !== 12) {
+        throw new Error('Recovery seed must be exactly 12 words');
+    }
+    
+    // Generate keypair from seed
+    const keypairData = await generateKeypairFromSeed(seedWords, derivationPathValue);
+    
+    return {
+        publicKey: keypairData.publicKey,
+        secretKey: keypairData.secretKey,
+        seed: seedWords,
+        derivationPath: derivationPathValue,
+        createdAt: new Date().toISOString(),
+        accountType: ACCOUNT_TYPES.VOTE,
+        imported: true,
+        importMethod: 'seed'
+    };
+}
+
+// Import vote from keypair
+async function importVoteFromKeypair() {
+    const keypairText = document.getElementById('voteKeypairText');
+    const keypairFile = document.getElementById('voteKeypairFile');
+    
+    if (!keypairText) {
+        throw new Error('Keypair text input not found');
+    }
+    
+    let keypairContent = '';
+    
+    // Check if file was selected
+    if (keypairFile && keypairFile.files && keypairFile.files[0] && keypairFile.getAttribute('data-file-loaded')) {
+        // Read from file
+        const file = keypairFile.files[0];
+        try {
+            keypairContent = await readFileAsText(file);
+        } catch (error) {
+            throw new Error('Failed to read keypair file: ' + error.message);
+        }
+    } else {
+        // Read from text input
+        keypairContent = keypairText.value.trim();
+    }
+    
+    if (!keypairContent) {
+        throw new Error('Please provide keypair data either by selecting a file or pasting the data');
+    }
+    
+    let secretKeyArray;
+    
+    try {
+        // Parse JSON - expecting direct array format [123, 456, ...]
+        const keypairJson = JSON.parse(keypairContent);
+        
+        if (Array.isArray(keypairJson)) {
+            // Direct array format [123, 456, ...]
+            secretKeyArray = keypairJson;
+        } else {
+            throw new Error('Expected array format: [123,456,789,...]');
+        }
+        
+    } catch (parseError) {
+        throw new Error('Invalid JSON format. Expected array format: [123,456,789,...]');
+    }
+    
+    // Validate secret key array
+    if (!Array.isArray(secretKeyArray) || secretKeyArray.length !== 64) {
+        throw new Error('Invalid keypair format. Expected array of exactly 64 numbers.');
+    }
+    
+    // Validate all elements are numbers
+    if (!secretKeyArray.every(num => typeof num === 'number' && num >= 0 && num <= 255)) {
+        throw new Error('Invalid keypair data. All values must be numbers between 0-255.');
+    }
+    
+    try {
+        // Create keypair from secret key
+        const keypair = solanaWeb3.Keypair.fromSecretKey(new Uint8Array(secretKeyArray));
+        
+        return {
+            publicKey: keypair.publicKey.toString(),
+            secretKey: secretKeyArray,
+            seed: null, // No seed for direct keypair import
+            derivationPath: null, // No derivation path for direct keypair import
+            createdAt: new Date().toISOString(),
+            accountType: ACCOUNT_TYPES.VOTE,
+            imported: true,
+            importMethod: 'keypair'
+        };
+        
+    } catch (keypairError) {
+        throw new Error('Failed to create keypair from provided data: ' + keypairError.message);
+    }
+}
+
+// Handle vote keypair file selection
+function handleVoteKeypairFileSelect(event) {
+    const file = event.target.files[0];
+    const filePreview = document.getElementById('voteFilePreview');
+    const fileName = document.getElementById('voteFileName');
+    
+    if (file) {
+        if (fileName) fileName.textContent = file.name;
+        if (filePreview) filePreview.classList.remove('hidden');
+        
+        // Store file reference for later processing, but don't display content for security
+        const voteKeypairFileInput = document.getElementById('voteKeypairFile');
+        if (voteKeypairFileInput) {
+            voteKeypairFileInput.setAttribute('data-file-loaded', 'true');
+        }
+    } else {
+        if (filePreview) filePreview.classList.add('hidden');
+        const voteKeypairFileInput = document.getElementById('voteKeypairFile');
+        if (voteKeypairFileInput) {
+            voteKeypairFileInput.removeAttribute('data-file-loaded');
+        }
+    }
+}
+
+// Ensure import button listeners are attached
+function ensureImportButtonListeners() {
+    const importVoteBtn = document.getElementById('importVoteBtn');
+    if (importVoteBtn && !importVoteBtn.hasAttribute('data-listener-attached')) {
+        importVoteBtn.addEventListener('click', () => showImportVoteModal());
+        importVoteBtn.setAttribute('data-listener-attached', 'true');
+        console.log('Import vote button listener attached');
+    }
+    
+    const importIdentityBtn = document.getElementById('importIdentityBtn');
+    if (importIdentityBtn && !importIdentityBtn.hasAttribute('data-listener-attached')) {
+        importIdentityBtn.addEventListener('click', () => showImportIdentityModal());
+        importIdentityBtn.setAttribute('data-listener-attached', 'true');
+        console.log('Import identity button listener attached');
+    }
+}

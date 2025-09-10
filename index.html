@@ -348,10 +348,18 @@
                                     <div class="account-status">
                                         <div class="existing-accounts none">No accounts</div>
                                     </div>
-                                    <button id="generateVoteBtn" class="generate-btn">
-                                        <i class="fas fa-plus"></i>
-                                        Generate Vote Account
-                                    </button>
+                                    
+                                    <!-- Add button container for vote account -->
+                                    <div class="account-buttons">
+                                        <button id="generateVoteBtn" class="generate-btn">
+                                            <i class="fas fa-plus"></i>
+                                            Generate Vote Account
+                                        </button>
+                                        <button id="importVoteBtn" class="import-btn">
+                                            <i class="fas fa-upload"></i>
+                                            Import Vote Account
+                                        </button>
+                                    </div>
                                     
                                     <!-- Generated Vote Account -->
                                     <div class="generated-accounts">
@@ -749,6 +757,107 @@
                 <button id="importAccountBtn" class="btn-confirm" onclick="importIdentityAccount()">
                     <i class="fas fa-upload"></i>
                     Import Account
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Vote Account Modal -->
+    <div id="importVoteModal" class="modal hidden">
+        <div class="modal-content import-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-upload"></i> Import Vote Account</h3>
+                <button class="modal-close" onclick="hideImportVoteModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Import Method Selection -->
+                <div class="import-method-selection">
+                    <h4><i class="fas fa-route"></i> Import Method</h4>
+                    <div class="method-options">
+                        <div class="method-option active" data-method="seed">
+                            <div class="method-header">
+                                <input type="radio" name="importVoteMethod" value="seed" checked>
+                                <i class="fas fa-seedling"></i>
+                                <span>Recovery Seed</span>
+                            </div>
+                            <p>Import using your 12-word recovery seed phrase</p>
+                        </div>
+                        <div class="method-option" data-method="keypair">
+                            <div class="method-header">
+                                <input type="radio" name="importVoteMethod" value="keypair">
+                                <i class="fas fa-key"></i>
+                                <span>Keypair File</span>
+                            </div>
+                            <p>Import using your keypair JSON file</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Seed Import Section -->
+                <div id="voteSeedImportSection" class="import-section">
+                    <h4><i class="fas fa-seedling"></i> Recovery Seed Import</h4>
+                    <div class="seed-input-area">
+                        <label for="voteSeedInput">Enter your 12-word recovery seed:</label>
+                        <textarea 
+                            id="voteSeedInput" 
+                            placeholder="word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12"
+                            class="seed-textarea"
+                            rows="3"
+                        ></textarea>
+                        <small>Separate words with spaces. Words are case-sensitive.</small>
+                    </div>
+                    
+                    <div class="derivation-path-section">
+                        <label for="importVoteDerivationPath">Derivation Path:</label>
+                        <div class="derivation-path-group">
+                            <input type="text" id="importVoteDerivationPath" class="derivation-input" placeholder="m/44'/501'/0'/0'" value="m/44'/501'/0'/0'">
+                            <button type="button" class="use-default-btn" onclick="useDefaultVoteImportPath()">Use Default</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Keypair Import Section -->
+                <div id="voteKeypairImportSection" class="import-section hidden">
+                    <h4><i class="fas fa-key"></i> Keypair File Import</h4>
+                    <div class="file-input-area">
+                        <label for="voteKeypairFile">Select keypair JSON file:</label>
+                        <input type="file" id="voteKeypairFile" accept=".json" class="file-input">
+                        <div class="file-preview hidden" id="voteFilePreview">
+                            <i class="fas fa-file-code"></i>
+                            <span id="voteFileName"></span>
+                            <button type="button" class="remove-file-btn" onclick="clearVoteKeypairFile()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="keypair-text-input">
+                        <label for="voteKeypairText">Or paste keypair JSON directly:</label>
+                        <textarea 
+                            id="voteKeypairText" 
+                            placeholder='[123,456,789,...]'
+                            class="keypair-textarea"
+                            rows="4"
+                        ></textarea>
+                        <small>Paste the JSON array of 64 numbers representing your keypair</small>
+                    </div>
+                </div>
+
+                <div class="warning-note">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div>
+                        <strong>Important:</strong> Only initialized vote accounts can be imported. 
+                        The system will verify that the vote account exists on-chain and is owned by the Vote Program.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="hideImportVoteModal()">Cancel</button>
+                <button id="importVoteAccountBtn" class="btn-confirm" onclick="importVoteAccount()">
+                    <i class="fas fa-upload"></i>
+                    Import Vote Account
                 </button>
             </div>
         </div>
