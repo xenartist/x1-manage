@@ -1496,6 +1496,17 @@
     font-size: 13px;
 }
 
+/* Initialized status display for vote accounts */
+.initialized-status {
+    background: rgba(59, 130, 246, 0.1);
+    color: #1d4ed8;
+    border-color: rgba(59, 130, 246, 0.2);
+}
+
+.initialized-status i {
+    font-size: 13px;
+}
+
 /* Modal Error Message */
 .modal-error-message {
     background: rgba(239, 68, 68, 0.1);

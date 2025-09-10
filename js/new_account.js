@@ -147,7 +147,7 @@ function updateVoteAccountsDisplay() {
     const voteAccountsList = document.getElementById('voteAccountsList');
     const generatedSection = document.querySelector('[data-type="vote"] .generated-accounts');
     
-    // Check if identity account exists - required ONLY for generate/create vote account operations
+    // Check if identity account exists - required ONLY for generate vote account
     const hasIdentityAccount = currentValidator.identityAccount && currentValidator.identityAccount.publicKey;
     
     if (currentValidator.voteAccount) {
@@ -179,33 +179,16 @@ function updateVoteAccountsDisplay() {
             voteAccountsList.appendChild(accountElement);
         }
         
-        // Change button to Create Vote Account - but only enable if identity exists
+        // Keep generate button as "Generate Vote Account" but disabled
         if (voteBtn) {
-            voteBtn.textContent = 'Create (Initialize) Vote Account';
-            voteBtn.innerHTML = '<i class="fas fa-plus-circle"></i> Create (Initialize) Vote Account';
-            voteBtn.classList.remove('generate-btn');
-            voteBtn.classList.add('create-vote-btn');
-            
-            if (hasIdentityAccount) {
-                // Enable create functionality
-                voteBtn.disabled = false;
-                // Remove old event listener and add new one
-                voteBtn.replaceWith(voteBtn.cloneNode(true));
-                const newVoteBtn = document.getElementById('generateVoteBtn');
-                newVoteBtn.classList.add('create-vote-btn');
-                newVoteBtn.addEventListener('click', () => showCreateVoteAccountModal());
-            } else {
-                // Disable because no identity account
-                voteBtn.disabled = true;
-                voteBtn.title = 'Please generate an Identity Account first';
-                // Remove click handler
-                voteBtn.replaceWith(voteBtn.cloneNode(true));
-                const newVoteBtn = document.getElementById('generateVoteBtn');
-                newVoteBtn.classList.add('create-vote-btn');
-                newVoteBtn.disabled = true;
-                newVoteBtn.title = 'Please generate an Identity Account first';
-            }
+            voteBtn.textContent = 'Generate Vote Account';
+            voteBtn.innerHTML = '<i class="fas fa-plus"></i> Generate Vote Account';
+            voteBtn.classList.remove('create-vote-btn');
+            voteBtn.classList.add('generate-btn');
+            voteBtn.disabled = true;
+            voteBtn.title = 'Vote account already generated';
         }
+        
     } else {
         // No vote account exists
         if (existingCount) {
@@ -214,6 +197,8 @@ function updateVoteAccountsDisplay() {
         }
         if (voteCard) {
             voteCard.classList.remove('has-account');
+            // Don't disable the entire card - only the generate button
+            voteCard.classList.remove('disabled');
         }
         if (generatedSection) generatedSection.style.display = 'none';
         
@@ -232,16 +217,15 @@ function updateVoteAccountsDisplay() {
             if (hasIdentityAccount) {
                 // Enable generation
                 voteBtn.disabled = false;
-                voteCard.classList.remove('disabled');
+                voteBtn.title = '';
                 // Remove old event listener and add new one  
                 voteBtn.replaceWith(voteBtn.cloneNode(true));
                 const newVoteBtn = document.getElementById('generateVoteBtn');
                 newVoteBtn.classList.add('generate-btn');
                 newVoteBtn.addEventListener('click', () => showGenerationModal(ACCOUNT_TYPES.VOTE));
             } else {
-                // Disable generation because no identity account
+                // Disable generate button because no identity account
                 voteBtn.disabled = true;
-                voteCard.classList.add('disabled');
                 voteBtn.title = 'Please generate an Identity Account first';
                 // Remove click handler
                 voteBtn.replaceWith(voteBtn.cloneNode(true));
@@ -252,11 +236,11 @@ function updateVoteAccountsDisplay() {
             }
         }
         
-        // Import Vote Account button - does NOT depend on identity account
+        // Import Vote Account button - always enabled (not affected by identity account)
         if (importVoteBtn) {
             importVoteBtn.disabled = false;
             importVoteBtn.title = '';
-            // Ensure event listener is attached (in case it was lost)
+            // Ensure event listener is attached
             if (!importVoteBtn.hasAttribute('data-listener-attached')) {
                 importVoteBtn.addEventListener('click', () => showImportVoteModal());
                 importVoteBtn.setAttribute('data-listener-attached', 'true');
@@ -334,6 +318,27 @@ function createAccountElement(account, type, index) {
             Download
         </button>
     `;
+    
+    // Add specialized buttons for vote accounts
+    if (type === ACCOUNT_TYPES.VOTE) {
+        if (account.initialized) {
+            // Vote account is initialized - show status (placeholder for future functionality)
+            actionButtons += `
+                <div class="action-status initialized-status">
+                    <i class="fas fa-check-circle"></i>
+                    Initialized
+                </div>
+            `;
+        } else {
+            // Vote account not initialized - show create button
+            actionButtons += `
+                <button class="action-btn create-vote-btn" onclick="showCreateVoteAccountModal('${account.publicKey}', ${index})">
+                    <i class="fas fa-plus-circle"></i>
+                    Create (Initialize) Vote Account
+                </button>
+            `;
+        }
+    }
     
     // Add specialized buttons for stake accounts
     if (type === ACCOUNT_TYPES.STAKE) {
@@ -1263,13 +1268,18 @@ async function generateKeypairFromSeedAlternative(seedWords, derivationPath) {
 }
 
 // Show create vote account modal
-function showCreateVoteAccountModal() {
+function showCreateVoteAccountModal(voteAccountAddress = null, voteIndex = null) {
     if (!walletConnected) {
         showError('Please connect your wallet first');
         return;
     }
     
-    if (!currentValidator.voteAccount) {
+    // Check if we have a vote account
+    const voteAccount = voteAccountAddress ? 
+        currentValidator.voteAccount : 
+        currentValidator.voteAccount;
+    
+    if (!voteAccount) {
         showError('Please generate a vote account keypair first');
         return;
     }
@@ -1287,7 +1297,7 @@ function showCreateVoteAccountModal() {
     
     // Fill in vote account public key
     if (voteAccountKeyInput) {
-        voteAccountKeyInput.value = currentValidator.voteAccount.publicKey;
+        voteAccountKeyInput.value = voteAccount.publicKey;
     }
     
     // Use generated identity account
@@ -2734,6 +2744,9 @@ async function importVoteAccount() {
             if (!isInitialized) {
                 throw new Error('This vote account has not been initialized on-chain yet. Only initialized vote accounts can be imported.');
             }
+            
+            // Set initialized status since we've verified it's initialized
+            accountData.initialized = true;
             
             // Store imported account
             currentValidator.voteAccount = accountData;
