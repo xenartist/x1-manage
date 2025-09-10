@@ -685,6 +685,12 @@ function onWalletDisconnectedNewAccount() {
     updateAuthorityDisplay();
 }
 
+function onWalletUIUpdatedNewAccount(address) {
+    console.log('New Account: Wallet UI updated, address:', address);
+    updateAuthorityDisplay();
+    updateModalAuthorityDisplay();
+}
+
 // Update authority display
 function updateAuthorityDisplay() {
     const walletStatus = document.getElementById('walletStatus');
@@ -1503,5 +1509,6 @@ document.addEventListener('DOMContentLoaded', function() {
 window.initializeNewAccount = initializeNewAccount;
 window.onWalletConnectedNewAccount = onWalletConnectedNewAccount;
 window.onWalletDisconnectedNewAccount = onWalletDisconnectedNewAccount;
+window.onWalletUIUpdatedNewAccount = onWalletUIUpdatedNewAccount;
 
 console.log('New Account JS loaded successfully');

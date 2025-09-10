@@ -444,6 +444,11 @@ function updateWalletUI() {
         if (typeof onWalletUIUpdated === 'function') {
             onWalletUIUpdated(connectedWalletAddress);
         }
+
+        // notify new account page about wallet connection
+        if (typeof onWalletUIUpdatedNewAccount === 'function') {
+            onWalletUIUpdatedNewAccount(connectedWalletAddress);
+        }
         
         // if in manage account page, update related status
         const resultsSection = document.getElementById('resultsSection');
@@ -472,6 +477,11 @@ function updateWalletUI() {
         // notify other wallet disconnected
         if (typeof onWalletUIUpdated === 'function') {
             onWalletUIUpdated(null);
+        }
+        
+        // notify new account page about wallet disconnect
+        if (typeof onWalletUIUpdatedNewAccount === 'function') {
+            onWalletUIUpdatedNewAccount(null);
         }
     }
 }
