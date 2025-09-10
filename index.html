@@ -383,10 +383,18 @@
                                     <div class="account-status">
                                         <div class="existing-accounts none">No accounts</div>
                                     </div>
-                                    <button id="generateStakeBtn" class="generate-btn">
-                                        <i class="fas fa-plus"></i>
-                                        Generate Stake Account
-                                    </button>
+                                    
+                                    <!-- Add button container for stake account -->
+                                    <div class="account-buttons">
+                                        <button id="generateStakeBtn" class="generate-btn">
+                                            <i class="fas fa-plus"></i>
+                                            Generate Stake Account
+                                        </button>
+                                        <button id="importStakeBtn" class="import-btn">
+                                            <i class="fas fa-upload"></i>
+                                            Import Stake Account
+                                        </button>
+                                    </div>
                                     
                                     <!-- Generated Stake Accounts -->
                                     <div class="generated-accounts">
@@ -772,6 +780,12 @@
                 </button>
             </div>
             <div class="modal-body">
+                <!-- Error Message Area for Vote Import -->
+                <div id="voteImportError" class="modal-error-message hidden">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span id="voteImportErrorText"></span>
+                </div>
+
                 <!-- Import Method Selection -->
                 <div class="import-method-selection">
                     <h4><i class="fas fa-route"></i> Import Method</h4>
@@ -991,6 +1005,113 @@
                 <button class="btn-confirm" onclick="createStakeAccount()">
                     <i class="fas fa-plus-circle"></i>
                     Create Stake Account
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Stake Account Modal -->
+    <div id="importStakeModal" class="modal hidden">
+        <div class="modal-content import-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-upload"></i> Import Stake Account</h3>
+                <button class="modal-close" onclick="hideImportStakeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Error Message Area for Stake Import -->
+                <div id="stakeImportError" class="modal-error-message hidden">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span id="stakeImportErrorText"></span>
+                </div>
+
+                <!-- Import Method Selection -->
+                <div class="import-method-selection">
+                    <h4><i class="fas fa-route"></i> Import Method</h4>
+                    <div class="method-options">
+                        <div class="method-option active" data-method="seed">
+                            <div class="method-header">
+                                <input type="radio" name="importStakeMethod" value="seed" checked>
+                                <i class="fas fa-seedling"></i>
+                                <span>Recovery Seed</span>
+                            </div>
+                            <p>Import using your 12-word recovery seed phrase</p>
+                        </div>
+                        <div class="method-option" data-method="keypair">
+                            <div class="method-header">
+                                <input type="radio" name="importStakeMethod" value="keypair">
+                                <i class="fas fa-key"></i>
+                                <span>Keypair File</span>
+                            </div>
+                            <p>Import using your keypair JSON file</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Seed Import Section -->
+                <div id="stakeSeedImportSection" class="import-section">
+                    <h4><i class="fas fa-seedling"></i> Recovery Seed Import</h4>
+                    <div class="seed-input-area">
+                        <label for="stakeSeedInput">Enter your 12-word recovery seed:</label>
+                        <textarea 
+                            id="stakeSeedInput" 
+                            placeholder="word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12"
+                            class="seed-textarea"
+                            rows="3"
+                        ></textarea>
+                        <small>Separate words with spaces. Words are case-sensitive.</small>
+                    </div>
+                    
+                    <div class="derivation-path-section">
+                        <label for="importStakeDerivationPath">Derivation Path:</label>
+                        <div class="derivation-path-group">
+                            <input type="text" id="importStakeDerivationPath" class="derivation-input" placeholder="m/44'/501'/0'/0'" value="m/44'/501'/0'/0'">
+                            <button type="button" class="use-default-btn" onclick="useDefaultStakeImportPath()">Use Default</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Keypair Import Section -->
+                <div id="stakeKeypairImportSection" class="import-section hidden">
+                    <h4><i class="fas fa-key"></i> Keypair File Import</h4>
+                    <div class="file-input-area">
+                        <label for="stakeKeypairFile">Select keypair JSON file:</label>
+                        <input type="file" id="stakeKeypairFile" accept=".json" class="file-input">
+                        <div class="file-preview hidden" id="stakeFilePreview">
+                            <i class="fas fa-file-code"></i>
+                            <span id="stakeFileName"></span>
+                            <button type="button" class="remove-file-btn" onclick="clearStakeKeypairFile()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="keypair-text-input">
+                        <label for="stakeKeypairText">Or paste keypair JSON directly:</label>
+                        <textarea 
+                            id="stakeKeypairText" 
+                            placeholder='[123,456,789,...]'
+                            class="keypair-textarea"
+                            rows="4"
+                        ></textarea>
+                        <small>Paste the JSON array of 64 numbers representing your keypair</small>
+                    </div>
+                </div>
+
+                <div class="warning-note">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div>
+                        <strong>Important:</strong> Only initialized stake accounts can be imported. 
+                        The system will verify that the stake account exists on-chain and is owned by the Stake Program.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="hideImportStakeModal()">Cancel</button>
+                <button id="importStakeAccountBtn" class="btn-confirm" onclick="importStakeAccount()">
+                    <i class="fas fa-upload"></i>
+                    Import Stake Account
                 </button>
             </div>
         </div>

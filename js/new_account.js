@@ -43,6 +43,7 @@ function initializeGenerationButtons() {
     const voteBtn = document.getElementById('generateVoteBtn');
     const importVoteBtn = document.getElementById('importVoteBtn');
     const stakeBtn = document.getElementById('generateStakeBtn');
+    const importStakeBtn = document.getElementById('importStakeBtn');
     
     if (identityBtn) {
         identityBtn.addEventListener('click', () => showGenerationModal(ACCOUNT_TYPES.IDENTITY));
@@ -62,6 +63,10 @@ function initializeGenerationButtons() {
     
     if (stakeBtn) {
         stakeBtn.addEventListener('click', () => showGenerationModal(ACCOUNT_TYPES.STAKE));
+    }
+    
+    if (importStakeBtn) {
+        importStakeBtn.addEventListener('click', () => showImportStakeModal());
     }
 }
 
@@ -1658,7 +1663,7 @@ function resetImportModalState() {
 
 // Handle import method selection
 document.addEventListener('DOMContentLoaded', function() {
-    // Method selection event listeners for both identity and vote import modals
+    // Method selection event listeners for all import modals (identity, vote, stake)
     const methodOptions = document.querySelectorAll('.method-option');
     methodOptions.forEach(option => {
         option.addEventListener('click', function() {
@@ -1674,10 +1679,19 @@ document.addEventListener('DOMContentLoaded', function() {
             modalMethodOptions.forEach(opt => opt.classList.remove('active'));
             this.classList.add('active');
             
-            // Show/hide sections based on modal
-            const isVoteModal = modal.id === 'importVoteModal';
-            const seedSectionId = isVoteModal ? 'voteSeedImportSection' : 'seedImportSection';
-            const keypairSectionId = isVoteModal ? 'voteKeypairImportSection' : 'keypairImportSection';
+            // Show/hide sections based on modal type
+            let seedSectionId, keypairSectionId;
+            
+            if (modal.id === 'importIdentityModal') {
+                seedSectionId = 'seedImportSection';
+                keypairSectionId = 'keypairImportSection';
+            } else if (modal.id === 'importVoteModal') {
+                seedSectionId = 'voteSeedImportSection';
+                keypairSectionId = 'voteKeypairImportSection';
+            } else if (modal.id === 'importStakeModal') {
+                seedSectionId = 'stakeSeedImportSection';
+                keypairSectionId = 'stakeKeypairImportSection';
+            }
             
             const seedSection = document.getElementById(seedSectionId);
             const keypairSection = document.getElementById(keypairSectionId);
@@ -1692,7 +1706,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // File input change handlers for both identity and vote
+    // File input change handlers for all modals
     const keypairFileInput = document.getElementById('keypairFile');
     if (keypairFileInput) {
         keypairFileInput.addEventListener('change', handleKeypairFileSelect);
@@ -1701,6 +1715,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const voteKeypairFileInput = document.getElementById('voteKeypairFile');
     if (voteKeypairFileInput) {
         voteKeypairFileInput.addEventListener('change', handleVoteKeypairFileSelect);
+    }
+    
+    const stakeKeypairFileInput = document.getElementById('stakeKeypairFile');
+    if (stakeKeypairFileInput) {
+        stakeKeypairFileInput.addEventListener('change', handleStakeKeypairFileSelect);
     }
 });
 
@@ -2607,6 +2626,9 @@ function hideImportVoteModal() {
 
 // Reset import vote modal state
 function resetImportVoteModalState() {
+    // Hide error message
+    hideModalError('importVoteModal');
+    
     // Reset method selection
     const seedMethodOption = document.querySelector('#importVoteModal .method-option[data-method="seed"]');
     const keypairMethodOption = document.querySelector('#importVoteModal .method-option[data-method="keypair"]');
@@ -2676,6 +2698,9 @@ async function importVoteAccount() {
     const importBtn = document.getElementById('importVoteAccountBtn');
     const selectedMethod = document.querySelector('input[name="importVoteMethod"]:checked').value;
     
+    // Hide any previous error messages
+    hideModalError('importVoteModal');
+    
     try {
         // Update UI
         if (importBtn) {
@@ -2714,6 +2739,9 @@ async function importVoteAccount() {
         
     } catch (error) {
         console.error('Failed to import vote account:', error);
+        
+        // Show error in both modal and global message area
+        showModalError('importVoteModal', error.message);
         showError('Failed to import vote account: ' + error.message);
     } finally {
         // Reset button state
@@ -2906,5 +2934,456 @@ function ensureImportButtonListeners() {
         importIdentityBtn.addEventListener('click', () => showImportIdentityModal());
         importIdentityBtn.setAttribute('data-listener-attached', 'true');
         console.log('Import identity button listener attached');
+    }
+    
+    const importStakeBtn = document.getElementById('importStakeBtn');
+    if (importStakeBtn && !importStakeBtn.hasAttribute('data-listener-attached')) {
+        importStakeBtn.addEventListener('click', () => showImportStakeModal());
+        importStakeBtn.setAttribute('data-listener-attached', 'true');
+        console.log('Import stake button listener attached');
+    }
+}
+
+// Show import stake account modal
+function showImportStakeModal() {
+    const modal = document.getElementById('importStakeModal');
+    if (modal) {
+        // Reset modal state
+        resetImportStakeModalState();
+        modal.classList.remove('hidden');
+    }
+}
+
+// Hide import stake account modal
+function hideImportStakeModal() {
+    const modal = document.getElementById('importStakeModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        resetImportStakeModalState();
+    }
+}
+
+// Reset import stake modal state
+function resetImportStakeModalState() {
+    // Hide error message
+    hideModalError('importStakeModal');
+    
+    // Reset method selection
+    const seedMethodOption = document.querySelector('#importStakeModal .method-option[data-method="seed"]');
+    const keypairMethodOption = document.querySelector('#importStakeModal .method-option[data-method="keypair"]');
+    const seedRadio = document.querySelector('input[name="importStakeMethod"][value="seed"]');
+    const keypairRadio = document.querySelector('input[name="importStakeMethod"][value="keypair"]');
+    
+    if (seedMethodOption) seedMethodOption.classList.add('active');
+    if (keypairMethodOption) keypairMethodOption.classList.remove('active');
+    if (seedRadio) seedRadio.checked = true;
+    if (keypairRadio) keypairRadio.checked = false;
+    
+    // Show seed section, hide keypair section
+    const seedSection = document.getElementById('stakeSeedImportSection');
+    const keypairSection = document.getElementById('stakeKeypairImportSection');
+    if (seedSection) seedSection.classList.remove('hidden');
+    if (keypairSection) keypairSection.classList.add('hidden');
+    
+    // Clear inputs
+    const seedInput = document.getElementById('stakeSeedInput');
+    const derivationPath = document.getElementById('importStakeDerivationPath');
+    const keypairFile = document.getElementById('stakeKeypairFile');
+    const keypairText = document.getElementById('stakeKeypairText');
+    
+    if (seedInput) seedInput.value = '';
+    if (derivationPath) derivationPath.value = "m/44'/501'/0'/0'";
+    if (keypairFile) {
+        keypairFile.value = '';
+        keypairFile.removeAttribute('data-file-loaded');
+    }
+    if (keypairText) keypairText.value = '';
+    
+    // Hide file preview
+    const filePreview = document.getElementById('stakeFilePreview');
+    if (filePreview) filePreview.classList.add('hidden');
+    
+    // Reset button state
+    const importBtn = document.getElementById('importStakeAccountBtn');
+    if (importBtn) {
+        importBtn.disabled = false;
+        importBtn.classList.remove('loading');
+        importBtn.innerHTML = '<i class="fas fa-upload"></i> Import Stake Account';
+    }
+}
+
+// Use default stake import derivation path
+function useDefaultStakeImportPath() {
+    const derivationInput = document.getElementById('importStakeDerivationPath');
+    if (derivationInput) {
+        derivationInput.value = DEFAULT_DERIVATION_PATH;
+    }
+}
+
+// Clear stake keypair file
+function clearStakeKeypairFile() {
+    const keypairFile = document.getElementById('stakeKeypairFile');
+    const filePreview = document.getElementById('stakeFilePreview');
+    
+    if (keypairFile) {
+        keypairFile.value = '';
+        keypairFile.removeAttribute('data-file-loaded');
+    }
+    if (filePreview) filePreview.classList.add('hidden');
+}
+
+// Handle stake keypair file selection
+function handleStakeKeypairFileSelect(event) {
+    const file = event.target.files[0];
+    const filePreview = document.getElementById('stakeFilePreview');
+    const fileName = document.getElementById('stakeFileName');
+    
+    if (file) {
+        if (fileName) fileName.textContent = file.name;
+        if (filePreview) filePreview.classList.remove('hidden');
+        
+        // Store file reference for later processing
+        const stakeKeypairFileInput = document.getElementById('stakeKeypairFile');
+        if (stakeKeypairFileInput) {
+            stakeKeypairFileInput.setAttribute('data-file-loaded', 'true');
+        }
+    } else {
+        if (filePreview) filePreview.classList.add('hidden');
+        const stakeKeypairFileInput = document.getElementById('stakeKeypairFile');
+        if (stakeKeypairFileInput) {
+            stakeKeypairFileInput.removeAttribute('data-file-loaded');
+        }
+    }
+}
+
+// Import stake account
+async function importStakeAccount() {
+    const importBtn = document.getElementById('importStakeAccountBtn');
+    const selectedMethod = document.querySelector('input[name="importStakeMethod"]:checked').value;
+    
+    // Hide any previous error messages
+    hideModalError('importStakeModal');
+    
+    try {
+        // Update UI
+        if (importBtn) {
+            importBtn.disabled = true;
+            importBtn.classList.add('loading');
+            importBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing...';
+        }
+        
+        let accountData;
+        
+        if (selectedMethod === 'seed') {
+            accountData = await importStakeFromSeed();
+        } else if (selectedMethod === 'keypair') {
+            accountData = await importStakeFromKeypair();
+        }
+        
+        if (accountData) {
+            // Verify the stake account is initialized on-chain
+            const stakeInfo = await verifyStakeAccountInitialized(accountData.publicKey);
+            
+            if (!stakeInfo.isInitialized) {
+                throw new Error('This stake account has not been initialized on-chain yet. Only initialized stake accounts can be imported.');
+            }
+            
+            // Set additional properties based on on-chain state
+            accountData.initialized = true;
+            accountData.delegated = stakeInfo.isDelegated;
+            
+            // Add to stake accounts array
+            currentValidator.stakeAccounts.push(accountData);
+            
+            // Update display
+            updateStakeAccountsDisplay();
+            
+            // Close modal
+            hideImportStakeModal();
+            
+            showSuccess('Stake account imported successfully!');
+        }
+        
+    } catch (error) {
+        console.error('Failed to import stake account:', error);
+        
+        // Show error in both modal and global message area
+        showModalError('importStakeModal', error.message);
+        showError('Failed to import stake account: ' + error.message);
+    } finally {
+        // Reset button state
+        if (importBtn) {
+            importBtn.disabled = false;
+            importBtn.classList.remove('loading');
+            importBtn.innerHTML = '<i class="fas fa-upload"></i> Import Stake Account';
+        }
+    }
+}
+
+// Verify stake account is initialized on-chain and get delegation status
+async function verifyStakeAccountInitialized(publicKey) {
+    try {
+        const stakeAccountPubkey = new solanaWeb3.PublicKey(publicKey);
+        const accountInfo = await connection.getAccountInfo(stakeAccountPubkey);
+        
+        if (!accountInfo) {
+            throw new Error('Stake account does not exist on-chain');
+        }
+        
+        // Check if account is owned by Stake Program
+        const stakeProgram = 'Stake11111111111111111111111111111111111111';
+        if (accountInfo.owner.toString() !== stakeProgram) {
+            throw new Error('Account is not a valid stake account (not owned by Stake Program)');
+        }
+        
+        // Parse stake account data to check delegation status using Solana Web3.js
+        let isDelegated = false;
+        let delegatedVoteAccount = null;
+        
+        try {
+            // Use Solana Web3.js to get stake activation info - this tells us about delegation
+            const stakeActivation = await connection.getStakeActivation(stakeAccountPubkey);
+            
+            console.log('Stake activation info:', stakeActivation);
+            
+            // Check if stake is active, activating, or deactivating (all indicate delegation)
+            if (stakeActivation.state === 'active' || 
+                stakeActivation.state === 'activating' || 
+                stakeActivation.state === 'deactivating') {
+                isDelegated = true;
+                
+                // Try to get the actual stake account data to find the vote account
+                try {
+                    // Get parsed stake account info
+                    const parsedAccountInfo = await connection.getParsedAccountInfo(stakeAccountPubkey);
+                    
+                    if (parsedAccountInfo.value && 
+                        parsedAccountInfo.value.data && 
+                        parsedAccountInfo.value.data.parsed) {
+                        
+                        const stakeAccountData = parsedAccountInfo.value.data.parsed;
+                        console.log('Parsed stake account data:', stakeAccountData);
+                        
+                        // Check if there's delegation info
+                        if (stakeAccountData.info && 
+                            stakeAccountData.info.stake && 
+                            stakeAccountData.info.stake.delegation) {
+                            
+                            delegatedVoteAccount = stakeAccountData.info.stake.delegation.voter;
+                            console.log('Delegated to vote account:', delegatedVoteAccount);
+                        }
+                    }
+                } catch (parseError) {
+                    console.log('Could not parse detailed stake account data:', parseError);
+                    // isDelegated is already set based on activation state, so this is fine
+                }
+            }
+            
+        } catch (activationError) {
+            console.log('Could not get stake activation info:', activationError);
+            
+            // Fallback: try to parse raw account data
+            try {
+                // Get parsed account info as fallback
+                const parsedAccountInfo = await connection.getParsedAccountInfo(stakeAccountPubkey);
+                
+                if (parsedAccountInfo.value && 
+                    parsedAccountInfo.value.data && 
+                    parsedAccountInfo.value.data.parsed) {
+                    
+                    const stakeAccountData = parsedAccountInfo.value.data.parsed;
+                    
+                    // Check if there's delegation info in parsed data
+                    if (stakeAccountData.info && 
+                        stakeAccountData.info.stake && 
+                        stakeAccountData.info.stake.delegation) {
+                        
+                        isDelegated = true;
+                        delegatedVoteAccount = stakeAccountData.info.stake.delegation.voter;
+                        console.log('Found delegation info in parsed data:', delegatedVoteAccount);
+                    }
+                }
+            } catch (fallbackError) {
+                console.log('Fallback delegation detection also failed:', fallbackError);
+                // If all methods fail, assume not delegated for safety
+                isDelegated = false;
+            }
+        }
+        
+        console.log(`Stake account ${publicKey} delegation status: ${isDelegated ? 'DELEGATED' : 'NOT DELEGATED'}`);
+        if (isDelegated && delegatedVoteAccount) {
+            console.log(`Delegated to vote account: ${delegatedVoteAccount}`);
+        }
+        
+        return {
+            isInitialized: true,
+            isDelegated: isDelegated,
+            delegatedVoteAccount: delegatedVoteAccount
+        };
+        
+    } catch (error) {
+        console.error('Stake account verification failed:', error);
+        throw error;
+    }
+}
+
+// Import stake from seed
+async function importStakeFromSeed() {
+    const seedInput = document.getElementById('stakeSeedInput');
+    const derivationPath = document.getElementById('importStakeDerivationPath');
+    
+    if (!seedInput || !derivationPath) {
+        throw new Error('Required input fields not found');
+    }
+    
+    const seedText = seedInput.value.trim();
+    const derivationPathValue = derivationPath.value.trim();
+    
+    if (!seedText) {
+        throw new Error('Please enter your recovery seed phrase');
+    }
+    
+    if (!derivationPathValue) {
+        throw new Error('Please enter a derivation path');
+    }
+    
+    // Validate and parse seed
+    const seedWords = seedText.split(/\s+/).filter(word => word.length > 0);
+    
+    if (seedWords.length !== 12) {
+        throw new Error('Recovery seed must be exactly 12 words');
+    }
+    
+    // Generate keypair from seed
+    const keypairData = await generateKeypairFromSeed(seedWords, derivationPathValue);
+    
+    return {
+        publicKey: keypairData.publicKey,
+        secretKey: keypairData.secretKey,
+        seed: seedWords,
+        derivationPath: derivationPathValue,
+        createdAt: new Date().toISOString(),
+        accountType: ACCOUNT_TYPES.STAKE,
+        imported: true,
+        importMethod: 'seed'
+    };
+}
+
+// Import stake from keypair
+async function importStakeFromKeypair() {
+    const keypairText = document.getElementById('stakeKeypairText');
+    const keypairFile = document.getElementById('stakeKeypairFile');
+    
+    if (!keypairText) {
+        throw new Error('Keypair text input not found');
+    }
+    
+    let keypairContent = '';
+    
+    // Check if file was selected
+    if (keypairFile && keypairFile.files && keypairFile.files[0] && keypairFile.getAttribute('data-file-loaded')) {
+        // Read from file
+        const file = keypairFile.files[0];
+        try {
+            keypairContent = await readFileAsText(file);
+        } catch (error) {
+            throw new Error('Failed to read keypair file: ' + error.message);
+        }
+    } else {
+        // Read from text input
+        keypairContent = keypairText.value.trim();
+    }
+    
+    if (!keypairContent) {
+        throw new Error('Please provide keypair data either by selecting a file or pasting the data');
+    }
+    
+    let secretKeyArray;
+    
+    try {
+        // Parse JSON - expecting direct array format [123, 456, ...]
+        const keypairJson = JSON.parse(keypairContent);
+        
+        if (Array.isArray(keypairJson)) {
+            // Direct array format [123, 456, ...]
+            secretKeyArray = keypairJson;
+        } else {
+            throw new Error('Expected array format: [123,456,789,...]');
+        }
+        
+    } catch (parseError) {
+        throw new Error('Invalid JSON format. Expected array format: [123,456,789,...]');
+    }
+    
+    // Validate secret key array
+    if (!Array.isArray(secretKeyArray) || secretKeyArray.length !== 64) {
+        throw new Error('Invalid keypair format. Expected array of exactly 64 numbers.');
+    }
+    
+    // Validate all elements are numbers
+    if (!secretKeyArray.every(num => typeof num === 'number' && num >= 0 && num <= 255)) {
+        throw new Error('Invalid keypair data. All values must be numbers between 0-255.');
+    }
+    
+    try {
+        // Create keypair from secret key
+        const keypair = solanaWeb3.Keypair.fromSecretKey(new Uint8Array(secretKeyArray));
+        
+        return {
+            publicKey: keypair.publicKey.toString(),
+            secretKey: secretKeyArray,
+            seed: null, // No seed for direct keypair import
+            derivationPath: null, // No derivation path for direct keypair import
+            createdAt: new Date().toISOString(),
+            accountType: ACCOUNT_TYPES.STAKE,
+            imported: true,
+            importMethod: 'keypair'
+        };
+        
+    } catch (keypairError) {
+        throw new Error('Failed to create keypair from provided data: ' + keypairError.message);
+    }
+}
+
+// Show modal error message
+function showModalError(modalId, message) {
+    let errorElementId, errorTextElementId;
+    
+    if (modalId === 'importVoteModal') {
+        errorElementId = 'voteImportError';
+        errorTextElementId = 'voteImportErrorText';
+    } else if (modalId === 'importStakeModal') {
+        errorElementId = 'stakeImportError';
+        errorTextElementId = 'stakeImportErrorText';
+    }
+    
+    const errorElement = document.getElementById(errorElementId);
+    const errorTextElement = document.getElementById(errorTextElementId);
+    
+    if (errorElement && errorTextElement) {
+        errorTextElement.textContent = message;
+        errorElement.classList.remove('hidden');
+        
+        // Scroll to top of modal to ensure error is visible
+        const modalContent = document.querySelector(`#${modalId} .modal-content`);
+        if (modalContent) {
+            modalContent.scrollTop = 0;
+        }
+    }
+}
+
+// Hide modal error message
+function hideModalError(modalId) {
+    let errorElementId;
+    
+    if (modalId === 'importVoteModal') {
+        errorElementId = 'voteImportError';
+    } else if (modalId === 'importStakeModal') {
+        errorElementId = 'stakeImportError';
+    }
+    
+    const errorElement = document.getElementById(errorElementId);
+    if (errorElement) {
+        errorElement.classList.add('hidden');
     }
 }
