@@ -36,11 +36,16 @@ function initializeNewAccount() {
 // Initialize generation buttons
 function initializeGenerationButtons() {
     const identityBtn = document.getElementById('generateIdentityBtn');
+    const importIdentityBtn = document.getElementById('importIdentityBtn');
     const voteBtn = document.getElementById('generateVoteBtn');
     const stakeBtn = document.getElementById('generateStakeBtn');
     
     if (identityBtn) {
         identityBtn.addEventListener('click', () => showGenerationModal(ACCOUNT_TYPES.IDENTITY));
+    }
+    
+    if (importIdentityBtn) {
+        importIdentityBtn.addEventListener('click', () => showImportIdentityModal());
     }
     
     if (voteBtn) {
@@ -60,18 +65,21 @@ function updateAccountTypesDisplay() {
 }
 
 // Update identity account display
-// Update identity account display
 function updateIdentityAccountDisplay() {
     const identityCard = document.querySelector('.account-type-card[data-type="identity"]');
     const identityBtn = document.getElementById('generateIdentityBtn');
+    const importIdentityBtn = document.getElementById('importIdentityBtn');
     const existingCount = document.querySelector('[data-type="identity"] .existing-accounts');
     const identityAccountsList = document.getElementById('identityAccountsList');
     const generatedSection = document.querySelector('[data-type="identity"] .generated-accounts');
+    const generatedSectionTitle = document.querySelector('[data-type="identity"] .generated-accounts h4');
     
     if (currentValidator.identityAccount) {
         if (identityBtn) identityBtn.disabled = true;
+        if (importIdentityBtn) importIdentityBtn.disabled = true;
         if (existingCount) {
-            existingCount.textContent = '1 account created';
+            const accountType = currentValidator.identityAccount.imported ? 'imported' : 'created';
+            existingCount.textContent = `1 account ${accountType}`;
             existingCount.classList.remove('none');
         }
         if (identityCard) {
@@ -79,6 +87,12 @@ function updateIdentityAccountDisplay() {
             identityCard.classList.add('has-account');
         }
         if (generatedSection) generatedSection.style.display = 'block';
+        
+        // Update section title based on whether account was imported or generated
+        if (generatedSectionTitle) {
+            const titleText = currentValidator.identityAccount.imported ? 'Imported Account:' : 'Generated Account:';
+            generatedSectionTitle.textContent = titleText;
+        }
         
         // Update accounts list
         if (identityAccountsList) {
@@ -88,6 +102,7 @@ function updateIdentityAccountDisplay() {
         }
     } else {
         if (identityBtn) identityBtn.disabled = false;
+        if (importIdentityBtn) importIdentityBtn.disabled = false;
         if (existingCount) {
             existingCount.textContent = 'No accounts';
             existingCount.classList.add('none');
@@ -97,6 +112,11 @@ function updateIdentityAccountDisplay() {
             identityCard.classList.remove('has-account');
         }
         if (generatedSection) generatedSection.style.display = 'none';
+        
+        // Reset section title to default
+        if (generatedSectionTitle) {
+            generatedSectionTitle.textContent = 'Generated Account:';
+        }
         
         // Clear accounts list
         if (identityAccountsList) {
@@ -252,6 +272,12 @@ function createAccountElement(account, type, index) {
         [ACCOUNT_TYPES.STAKE]: 'Stake'
     };
     
+    // account type
+    let sourceText = 'Created';
+    if (account.imported) {
+        sourceText = account.importMethod === 'seed' ? 'Imported from Seed' : 'Imported from Keypair';
+    }
+    
     div.innerHTML = `
         <div class="account-info">
             <div class="account-type-icon ${type}-icon">
@@ -259,7 +285,7 @@ function createAccountElement(account, type, index) {
             </div>
             <div class="account-details">
                 <div class="account-address">${account.publicKey}</div>
-                <div class="account-meta">${typeLabels[type]} Account • Created ${new Date().toLocaleString()}</div>
+                <div class="account-meta">${typeLabels[type]} Account • ${sourceText} ${new Date(account.createdAt).toLocaleString()}</div>
             </div>
         </div>
         <div class="account-actions">
@@ -1494,6 +1520,334 @@ function updateVoteAccountCardStatus() {
         existingCount.textContent = '1 account created and initialized';
         existingCount.classList.remove('none');
     }
+}
+
+// Show import identity account modal
+function showImportIdentityModal() {
+    if (currentValidator.identityAccount) {
+        showWarning('Identity account already exists. Only one identity account is allowed.');
+        return;
+    }
+    
+    const modal = document.getElementById('importIdentityModal');
+    if (modal) {
+        // Reset modal state
+        resetImportModalState();
+        modal.classList.remove('hidden');
+    }
+}
+
+// Hide import identity account modal
+function hideImportIdentityModal() {
+    const modal = document.getElementById('importIdentityModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        resetImportModalState();
+    }
+}
+
+// Reset import modal state
+function resetImportModalState() {
+    // Reset method selection
+    const seedMethodOption = document.querySelector('.method-option[data-method="seed"]');
+    const keypairMethodOption = document.querySelector('.method-option[data-method="keypair"]');
+    const seedRadio = document.querySelector('input[name="importMethod"][value="seed"]');
+    const keypairRadio = document.querySelector('input[name="importMethod"][value="keypair"]');
+    
+    if (seedMethodOption) seedMethodOption.classList.add('active');
+    if (keypairMethodOption) keypairMethodOption.classList.remove('active');
+    if (seedRadio) seedRadio.checked = true;
+    if (keypairRadio) keypairRadio.checked = false;
+    
+    // Show seed section, hide keypair section
+    const seedSection = document.getElementById('seedImportSection');
+    const keypairSection = document.getElementById('keypairImportSection');
+    if (seedSection) seedSection.classList.remove('hidden');
+    if (keypairSection) keypairSection.classList.add('hidden');
+    
+    // Clear inputs
+    const seedInput = document.getElementById('seedInput');
+    const derivationPath = document.getElementById('importDerivationPath');
+    const keypairFile = document.getElementById('keypairFile');
+    const keypairText = document.getElementById('keypairText');
+    
+    if (seedInput) seedInput.value = '';
+    if (derivationPath) derivationPath.value = "m/44'/501'/0'/0'";
+    if (keypairFile) {
+        keypairFile.value = '';
+        keypairFile.removeAttribute('data-file-loaded');
+    }
+    if (keypairText) keypairText.value = '';
+    
+    // Hide file preview
+    const filePreview = document.getElementById('filePreview');
+    if (filePreview) filePreview.classList.add('hidden');
+    
+    // Reset button state
+    const importBtn = document.getElementById('importAccountBtn');
+    if (importBtn) {
+        importBtn.disabled = false;
+        importBtn.classList.remove('loading');
+        importBtn.innerHTML = '<i class="fas fa-upload"></i> Import Account';
+    }
+}
+
+// Handle import method selection
+document.addEventListener('DOMContentLoaded', function() {
+    // Method selection event listeners
+    const methodOptions = document.querySelectorAll('.method-option');
+    methodOptions.forEach(option => {
+        option.addEventListener('click', function() {
+            const method = this.getAttribute('data-method');
+            const radio = this.querySelector('input[type="radio"]');
+            
+            // Update radio button
+            radio.checked = true;
+            
+            // Update active states
+            methodOptions.forEach(opt => opt.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Show/hide sections
+            const seedSection = document.getElementById('seedImportSection');
+            const keypairSection = document.getElementById('keypairImportSection');
+            
+            if (method === 'seed') {
+                if (seedSection) seedSection.classList.remove('hidden');
+                if (keypairSection) keypairSection.classList.add('hidden');
+            } else if (method === 'keypair') {
+                if (seedSection) seedSection.classList.add('hidden');
+                if (keypairSection) keypairSection.classList.remove('hidden');
+            }
+        });
+    });
+    
+    // File input change handler
+    const keypairFileInput = document.getElementById('keypairFile');
+    if (keypairFileInput) {
+        keypairFileInput.addEventListener('change', handleKeypairFileSelect);
+    }
+});
+
+// Handle keypair file selection
+function handleKeypairFileSelect(event) {
+    const file = event.target.files[0];
+    const filePreview = document.getElementById('filePreview');
+    const fileName = document.getElementById('fileName');
+    
+    if (file) {
+        if (fileName) fileName.textContent = file.name;
+        if (filePreview) filePreview.classList.remove('hidden');
+        
+        // Store file reference for later processing, but don't display content for security
+        const keypairFileInput = document.getElementById('keypairFile');
+        if (keypairFileInput) {
+            keypairFileInput.setAttribute('data-file-loaded', 'true');
+        }
+    } else {
+        if (filePreview) filePreview.classList.add('hidden');
+        const keypairFileInput = document.getElementById('keypairFile');
+        if (keypairFileInput) {
+            keypairFileInput.removeAttribute('data-file-loaded');
+        }
+    }
+}
+
+// Clear keypair file
+function clearKeypairFile() {
+    const keypairFile = document.getElementById('keypairFile');
+    const filePreview = document.getElementById('filePreview');
+    const keypairText = document.getElementById('keypairText');
+    
+    if (keypairFile) {
+        keypairFile.value = '';
+        keypairFile.removeAttribute('data-file-loaded');
+    }
+    if (filePreview) filePreview.classList.add('hidden');
+    // 不清除keypairText，让用户可以独立使用文本输入
+}
+
+// Use default import derivation path
+function useDefaultImportPath() {
+    const derivationInput = document.getElementById('importDerivationPath');
+    if (derivationInput) {
+        derivationInput.value = DEFAULT_DERIVATION_PATH;
+    }
+}
+
+// Import identity account
+async function importIdentityAccount() {
+    const importBtn = document.getElementById('importAccountBtn');
+    const selectedMethod = document.querySelector('input[name="importMethod"]:checked').value;
+    
+    try {
+        // Update UI
+        if (importBtn) {
+            importBtn.disabled = true;
+            importBtn.classList.add('loading');
+            importBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing...';
+        }
+        
+        let accountData;
+        
+        if (selectedMethod === 'seed') {
+            accountData = await importFromSeed();
+        } else if (selectedMethod === 'keypair') {
+            accountData = await importFromKeypair();
+        }
+        
+        if (accountData) {
+            // Store imported account
+            currentValidator.identityAccount = accountData;
+            
+            // Update display
+            updateAccountTypesDisplay();
+            
+            // Close modal
+            hideImportIdentityModal();
+            
+            showSuccess('Identity account imported successfully!');
+        }
+        
+    } catch (error) {
+        console.error('Failed to import account:', error);
+        showError('Failed to import account: ' + error.message);
+    } finally {
+        // Reset button state
+        if (importBtn) {
+            importBtn.disabled = false;
+            importBtn.classList.remove('loading');
+            importBtn.innerHTML = '<i class="fas fa-upload"></i> Import Account';
+        }
+    }
+}
+
+// Import from seed
+async function importFromSeed() {
+    const seedInput = document.getElementById('seedInput');
+    const derivationPath = document.getElementById('importDerivationPath');
+    
+    if (!seedInput || !derivationPath) {
+        throw new Error('Required input fields not found');
+    }
+    
+    const seedText = seedInput.value.trim();
+    const derivationPathValue = derivationPath.value.trim();
+    
+    if (!seedText) {
+        throw new Error('Please enter your recovery seed phrase');
+    }
+    
+    if (!derivationPathValue) {
+        throw new Error('Please enter a derivation path');
+    }
+    
+    // Validate and parse seed
+    const seedWords = seedText.split(/\s+/).filter(word => word.length > 0);
+    
+    if (seedWords.length !== 12) {
+        throw new Error('Recovery seed must be exactly 12 words');
+    }
+    
+    // Generate keypair from seed
+    const keypairData = await generateKeypairFromSeed(seedWords, derivationPathValue);
+    
+    return {
+        publicKey: keypairData.publicKey,
+        secretKey: keypairData.secretKey,
+        seed: seedWords,
+        derivationPath: derivationPathValue,
+        createdAt: new Date().toISOString(),
+        accountType: ACCOUNT_TYPES.IDENTITY,
+        imported: true,
+        importMethod: 'seed'
+    };
+}
+
+// Import from keypair
+async function importFromKeypair() {
+    const keypairText = document.getElementById('keypairText');
+    const keypairFile = document.getElementById('keypairFile');
+    
+    if (!keypairText) {
+        throw new Error('Keypair text input not found');
+    }
+    
+    let keypairContent = '';
+    
+    // Check if file was selected
+    if (keypairFile && keypairFile.files && keypairFile.files[0] && keypairFile.getAttribute('data-file-loaded')) {
+        // Read from file
+        const file = keypairFile.files[0];
+        try {
+            keypairContent = await readFileAsText(file);
+        } catch (error) {
+            throw new Error('Failed to read keypair file: ' + error.message);
+        }
+    } else {
+        // Read from text input
+        keypairContent = keypairText.value.trim();
+    }
+    
+    if (!keypairContent) {
+        throw new Error('Please provide keypair data either by selecting a file or pasting the data');
+    }
+    
+    let secretKeyArray;
+    
+    try {
+        // Parse JSON - expecting direct array format [123, 456, ...]
+        const keypairJson = JSON.parse(keypairContent);
+        
+        if (Array.isArray(keypairJson)) {
+            // Direct array format [123, 456, ...]
+            secretKeyArray = keypairJson;
+        } else {
+            throw new Error('Expected array format: [123,456,789,...]');
+        }
+        
+    } catch (parseError) {
+        throw new Error('Invalid JSON format. Expected array format: [123,456,789,...]');
+    }
+    
+    // Validate secret key array
+    if (!Array.isArray(secretKeyArray) || secretKeyArray.length !== 64) {
+        throw new Error('Invalid keypair format. Expected array of exactly 64 numbers.');
+    }
+    
+    // Validate all elements are numbers
+    if (!secretKeyArray.every(num => typeof num === 'number' && num >= 0 && num <= 255)) {
+        throw new Error('Invalid keypair data. All values must be numbers between 0-255.');
+    }
+    
+    try {
+        // Create keypair from secret key
+        const keypair = solanaWeb3.Keypair.fromSecretKey(new Uint8Array(secretKeyArray));
+        
+        return {
+            publicKey: keypair.publicKey.toString(),
+            secretKey: secretKeyArray,
+            seed: null, // No seed for direct keypair import
+            derivationPath: null, // No derivation path for direct keypair import
+            createdAt: new Date().toISOString(),
+            accountType: ACCOUNT_TYPES.IDENTITY,
+            imported: true,
+            importMethod: 'keypair'
+        };
+        
+    } catch (keypairError) {
+        throw new Error('Failed to create keypair from provided data: ' + keypairError.message);
+    }
+}
+
+// Helper function to read file as text
+function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = (e) => reject(new Error('Failed to read file'));
+        reader.readAsText(file);
+    });
 }
 
 // Initialize when page loads

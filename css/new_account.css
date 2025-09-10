@@ -1062,3 +1062,252 @@
 .create-vote-btn .fas {
     font-size: 13px;
 }
+
+/* Account Buttons Container */
+.account-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Import Button Styles */
+.import-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.import-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+}
+
+.import-btn:disabled {
+    background: #e0e0e0;
+    color: #999;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Import Modal Styles */
+.import-modal .modal-content {
+    max-width: 650px;
+}
+
+.import-method-selection {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.import-method-selection h4 {
+    color: #374151;
+    font-size: 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.method-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.method-option {
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.method-option:hover {
+    border-color: #667eea;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.method-option.active {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.05);
+}
+
+.method-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.method-header input[type="radio"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #667eea;
+}
+
+.method-option p {
+    color: #6b7280;
+    font-size: 13px;
+    margin: 0;
+    margin-left: 28px;
+}
+
+.import-section {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.import-section h4 {
+    color: #374151;
+    font-size: 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.seed-input-area,
+.file-input-area,
+.keypair-text-input {
+    margin-bottom: 20px;
+}
+
+.seed-input-area label,
+.file-input-area label,
+.keypair-text-input label {
+    display: block;
+    color: #374151;
+    font-weight: 500;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.seed-textarea,
+.keypair-textarea {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e2e8f0;
+    border-radius: 6px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 13px;
+    resize: vertical;
+    transition: border-color 0.2s ease;
+}
+
+.seed-textarea:focus,
+.keypair-textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.file-input {
+    width: 100%;
+    padding: 8px;
+    border: 2px dashed #e2e8f0;
+    border-radius: 6px;
+    background: white;
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+}
+
+.file-input:hover {
+    border-color: #667eea;
+}
+
+.file-preview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-top: 8px;
+}
+
+.file-preview i {
+    color: #22c55e;
+}
+
+.file-preview span {
+    color: #16a34a;
+    font-weight: 500;
+    flex: 1;
+}
+
+.remove-file-btn {
+    background: none;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 2px;
+    transition: background-color 0.2s ease;
+}
+
+.remove-file-btn:hover {
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.derivation-path-section {
+    margin-top: 16px;
+}
+
+.derivation-path-section label {
+    display: block;
+    color: #374151;
+    font-weight: 500;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+/* 隐藏状态 */
+.import-section.hidden {
+    display: none;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .account-buttons {
+        gap: 6px;
+    }
+    
+    .import-btn,
+    .generate-btn {
+        padding: 10px 14px;
+        font-size: 13px;
+    }
+    
+    .method-options {
+        gap: 8px;
+    }
+    
+    .method-option {
+        padding: 12px;
+    }
+    
+    .import-section {
+        padding: 16px;
+    }
+}

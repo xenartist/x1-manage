@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>X1 Validator Management</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="css/base.css?v=2025090704">
-    <link rel="stylesheet" href="css/manage_account.css?v=2025090702">
-    <link rel="stylesheet" href="css/new_account.css?v=2025090701">
+    <link rel="stylesheet" href="css/base.css?v=20250910">
+    <link rel="stylesheet" href="css/manage_account.css?v=20250910">
+    <link rel="stylesheet" href="css/new_account.css?v=20250910">
     <!-- Add Solana Web3.js SDK -->
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
     <!-- Add BIP39 library for mnemonic generation -->
@@ -313,10 +313,18 @@
                                     <div class="account-status">
                                         <div class="existing-accounts none">No accounts</div>
                                     </div>
-                                    <button id="generateIdentityBtn" class="generate-btn">
-                                        <i class="fas fa-plus"></i>
-                                        Generate Identity Account
-                                    </button>
+                                    
+                                    <!-- 修改这里：添加按钮容器 -->
+                                    <div class="account-buttons">
+                                        <button id="generateIdentityBtn" class="generate-btn">
+                                            <i class="fas fa-plus"></i>
+                                            Generate Identity Account
+                                        </button>
+                                        <button id="importIdentityBtn" class="import-btn">
+                                            <i class="fas fa-upload"></i>
+                                            Import Identity Account
+                                        </button>
+                                    </div>
                                     
                                     <!-- Generated Identity Account -->
                                     <div class="generated-accounts" style="display: none;">
@@ -645,9 +653,110 @@
         </div>
     </div>
 
+    <!-- Import Identity Account Modal -->
+    <div id="importIdentityModal" class="modal hidden">
+        <div class="modal-content import-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-upload"></i> Import Identity Account</h3>
+                <button class="modal-close" onclick="hideImportIdentityModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Import Method Selection -->
+                <div class="import-method-selection">
+                    <h4><i class="fas fa-route"></i> Import Method</h4>
+                    <div class="method-options">
+                        <div class="method-option active" data-method="seed">
+                            <div class="method-header">
+                                <input type="radio" name="importMethod" value="seed" checked>
+                                <i class="fas fa-seedling"></i>
+                                <span>Recovery Seed</span>
+                            </div>
+                            <p>Import using your 12-word recovery seed phrase</p>
+                        </div>
+                        <div class="method-option" data-method="keypair">
+                            <div class="method-header">
+                                <input type="radio" name="importMethod" value="keypair">
+                                <i class="fas fa-key"></i>
+                                <span>Keypair File</span>
+                            </div>
+                            <p>Import using your keypair JSON file</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Seed Import Section -->
+                <div id="seedImportSection" class="import-section">
+                    <h4><i class="fas fa-seedling"></i> Recovery Seed Import</h4>
+                    <div class="seed-input-area">
+                        <label for="seedInput">Enter your 12-word recovery seed:</label>
+                        <textarea 
+                            id="seedInput" 
+                            placeholder="word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12"
+                            class="seed-textarea"
+                            rows="3"
+                        ></textarea>
+                        <small>Separate words with spaces. Words are case-sensitive.</small>
+                    </div>
+                    
+                    <div class="derivation-path-section">
+                        <label for="importDerivationPath">Derivation Path:</label>
+                        <div class="derivation-path-group">
+                            <input type="text" id="importDerivationPath" class="derivation-input" placeholder="m/44'/501'/0'/0'" value="m/44'/501'/0'/0'">
+                            <button type="button" class="use-default-btn" onclick="useDefaultImportPath()">Use Default</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Keypair Import Section -->
+                <div id="keypairImportSection" class="import-section hidden">
+                    <h4><i class="fas fa-key"></i> Keypair File Import</h4>
+                    <div class="file-input-area">
+                        <label for="keypairFile">Select keypair JSON file:</label>
+                        <input type="file" id="keypairFile" accept=".json" class="file-input">
+                        <div class="file-preview hidden" id="filePreview">
+                            <i class="fas fa-file-code"></i>
+                            <span id="fileName"></span>
+                            <button type="button" class="remove-file-btn" onclick="clearKeypairFile()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="keypair-text-input">
+                        <label for="keypairText">Or paste keypair JSON directly:</label>
+                        <textarea 
+                            id="keypairText" 
+                            placeholder='[123,456,789,...]'
+                            class="keypair-textarea"
+                            rows="4"
+                        ></textarea>
+                        <small>Paste the JSON array of 64 numbers representing your keypair</small>
+                    </div>
+                </div>
+
+                <div class="warning-note">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div>
+                        <strong>Security Warning:</strong> Only import accounts you trust. 
+                        Make sure you're in a secure environment when entering sensitive information.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="hideImportIdentityModal()">Cancel</button>
+                <button id="importAccountBtn" class="btn-confirm" onclick="importIdentityAccount()">
+                    <i class="fas fa-upload"></i>
+                    Import Account
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
-    <script src="js/app.js?v=2025090710"></script>
-    <script src="js/manage_account.js?v=2025090703"></script>
-    <script src="js/new_account.js?v=2025090710"></script>
+    <script src="js/app.js?v=20250910"></script>
+    <script src="js/manage_account.js?v=20250910"></script>
+    <script src="js/new_account.js?v=20250910"></script>
 </body>
 </html>
