@@ -278,6 +278,47 @@ function createAccountElement(account, type, index) {
         sourceText = account.importMethod === 'seed' ? 'Imported from Seed' : 'Imported from Keypair';
     }
     
+    // Create action buttons based on account type
+    let actionButtons = `
+        <button class="action-btn copy-btn" onclick="copyToClipboard('${account.publicKey}')">
+            <i class="fas fa-copy"></i>
+            Copy
+        </button>
+        <button class="action-btn download-btn" onclick="downloadKeypair('${account.publicKey}', '${type}', ${index})">
+            <i class="fas fa-download"></i>
+            Download
+        </button>
+    `;
+    
+    // Add specialized buttons for stake accounts
+    if (type === ACCOUNT_TYPES.STAKE) {
+        if (account.delegated) {
+            // Stake account is delegated - show status
+            actionButtons += `
+                <div class="action-status delegated-status">
+                    <i class="fas fa-check-circle"></i>
+                    Delegated
+                </div>
+            `;
+        } else if (account.initialized) {
+            // Stake account is initialized but not delegated - show delegate button
+            actionButtons += `
+                <button class="action-btn delegate-btn" onclick="showDelegateModal('${account.publicKey}', ${index})">
+                    <i class="fas fa-arrow-up"></i>
+                    Delegate Stake
+                </button>
+            `;
+        } else {
+            // Stake account not initialized - show create button
+            actionButtons += `
+                <button class="action-btn create-stake-btn" onclick="showCreateStakeAccountModal('${account.publicKey}', ${index})">
+                    <i class="fas fa-plus-circle"></i>
+                    Create (Initialize) Stake Account
+                </button>
+            `;
+        }
+    }
+    
     div.innerHTML = `
         <div class="account-info">
             <div class="account-type-icon ${type}-icon">
@@ -289,14 +330,7 @@ function createAccountElement(account, type, index) {
             </div>
         </div>
         <div class="account-actions">
-            <button class="action-btn copy-btn" onclick="copyToClipboard('${account.publicKey}')">
-                <i class="fas fa-copy"></i>
-                Copy
-            </button>
-            <button class="action-btn download-btn" onclick="downloadKeypair('${account.publicKey}', '${type}', ${index})">
-                <i class="fas fa-download"></i>
-                Download
-            </button>
+            ${actionButtons}
         </div>
     `;
     
@@ -1864,5 +1898,644 @@ window.initializeNewAccount = initializeNewAccount;
 window.onWalletConnectedNewAccount = onWalletConnectedNewAccount;
 window.onWalletDisconnectedNewAccount = onWalletDisconnectedNewAccount;
 window.onWalletUIUpdatedNewAccount = onWalletUIUpdatedNewAccount;
+
+// Show delegate modal
+function showDelegateModal(stakeAccountAddress, stakeIndex) {
+    if (!walletConnected) {
+        showError('Please connect your wallet first');
+        return;
+    }
+    
+    const modal = document.getElementById('delegateStakeModal');
+    const stakeAccountInput = document.getElementById('delegateStakeAccount');
+    const voteAccountInput = document.getElementById('delegateVoteAccount');
+    const authorityInput = document.getElementById('delegateAuthority');
+    const validationDiv = document.getElementById('voteAccountValidation');
+    const balanceDiv = document.getElementById('stakeAccountBalance');
+    
+    if (stakeAccountInput) {
+        stakeAccountInput.value = stakeAccountAddress;
+    }
+    
+    if (authorityInput && connectedWalletAddress) {
+        authorityInput.value = connectedWalletAddress;
+    }
+    
+    // Reset balance display to loading state
+    if (balanceDiv) {
+        balanceDiv.className = 'balance-display loading';
+        balanceDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading balance...';
+    }
+    
+    // Auto-fill vote account if available
+    if (voteAccountInput) {
+        if (currentValidator.voteAccount && currentValidator.voteAccount.publicKey) {
+            voteAccountInput.value = currentValidator.voteAccount.publicKey;
+            // Validate the vote account immediately
+            validateVoteAccount(currentValidator.voteAccount.publicKey);
+        } else {
+            voteAccountInput.value = '';
+        }
+    }
+    
+    // Reset validation
+    if (validationDiv) {
+        validationDiv.classList.add('hidden');
+        validationDiv.textContent = '';
+    }
+    
+    // Reset delegate button
+    const delegateBtn = document.getElementById('delegateStakeBtn');
+    if (delegateBtn) {
+        delegateBtn.disabled = !currentValidator.voteAccount;
+        delegateBtn.classList.remove('loading');
+    }
+    
+    // Store current stake index for later use
+    window.currentDelegateStakeIndex = stakeIndex;
+    
+    // Add event listener for vote account validation
+    if (voteAccountInput) {
+        voteAccountInput.removeEventListener('input', handleVoteAccountInput);
+        voteAccountInput.addEventListener('input', handleVoteAccountInput);
+    }
+    
+    if (modal) modal.classList.remove('hidden');
+    
+    // Load stake account balance
+    loadStakeAccountBalance(stakeAccountAddress);
+}
+
+// Load stake account balance
+async function loadStakeAccountBalance(stakeAccountAddress) {
+    const balanceDiv = document.getElementById('stakeAccountBalance');
+    
+    try {
+        // Get stake account info
+        const stakeAccountPubkey = new solanaWeb3.PublicKey(stakeAccountAddress);
+        const accountInfo = await connection.getAccountInfo(stakeAccountPubkey);
+        
+        if (!accountInfo) {
+            throw new Error('Stake account not found on-chain');
+        }
+        
+        // Convert lamports to XNT
+        const balanceXNT = accountInfo.lamports / solanaWeb3.LAMPORTS_PER_SOL;
+        
+        if (balanceDiv) {
+            balanceDiv.className = 'balance-display';
+            balanceDiv.innerHTML = `${balanceXNT.toFixed(6)} XNT`;
+        }
+        
+        console.log('Stake account balance loaded:', balanceXNT, 'XNT');
+        
+    } catch (error) {
+        console.error('Failed to load stake account balance:', error);
+        
+        if (balanceDiv) {
+            balanceDiv.className = 'balance-display error';
+            balanceDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Failed to load balance';
+        }
+    }
+}
+
+// Hide delegate modal
+function hideDelegateModal() {
+    const modal = document.getElementById('delegateStakeModal');
+    if (modal) modal.classList.add('hidden');
+    
+    // Clean up
+    window.currentDelegateStakeIndex = null;
+    const voteAccountInput = document.getElementById('delegateVoteAccount');
+    if (voteAccountInput) {
+        voteAccountInput.removeEventListener('input', handleVoteAccountInput);
+    }
+}
+
+// Handle vote account input validation
+function handleVoteAccountInput(event) {
+    const voteAccount = event.target.value.trim();
+    if (voteAccount.length >= 32) {
+        validateVoteAccount(voteAccount);
+    } else {
+        const validationDiv = document.getElementById('voteAccountValidation');
+        const delegateBtn = document.getElementById('delegateStakeBtn');
+        
+        if (validationDiv) {
+            validationDiv.classList.add('hidden');
+        }
+        
+        if (delegateBtn) {
+            delegateBtn.disabled = true;
+        }
+    }
+}
+
+// Validate vote account
+async function validateVoteAccount(voteAccountAddress) {
+    const validationDiv = document.getElementById('voteAccountValidation');
+    const delegateBtn = document.getElementById('delegateStakeBtn');
+    
+    if (!voteAccountAddress) {
+        if (validationDiv) {
+            validationDiv.classList.add('hidden');
+        }
+        if (delegateBtn) {
+            delegateBtn.disabled = true;
+        }
+        return;
+    }
+    
+    try {
+        // Show validating state
+        if (validationDiv) {
+            validationDiv.className = 'validation-message validating';
+            validationDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Validating vote account...';
+        }
+        
+        const voteAccountPubkey = new solanaWeb3.PublicKey(voteAccountAddress);
+        const accountInfo = await connection.getAccountInfo(voteAccountPubkey);
+        
+        if (!accountInfo) {
+            throw new Error('Vote account does not exist');
+        }
+        
+        // Check if account is owned by Vote Program
+        const voteProgram = 'Vote111111111111111111111111111111111111111';
+        if (accountInfo.owner.toString() !== voteProgram) {
+            throw new Error('Invalid vote account - not owned by Vote Program');
+        }
+        
+        // Validation successful
+        if (validationDiv) {
+            validationDiv.className = 'validation-message valid';
+            validationDiv.innerHTML = '<i class="fas fa-check-circle"></i> Valid vote account';
+        }
+        
+        if (delegateBtn) {
+            delegateBtn.disabled = false;
+        }
+        
+    } catch (error) {
+        console.error('Vote account validation error:', error);
+        
+        if (validationDiv) {
+            validationDiv.className = 'validation-message invalid';
+            validationDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${error.message}`;
+        }
+        
+        if (delegateBtn) {
+            delegateBtn.disabled = true;
+        }
+    }
+}
+
+// Execute delegate stake
+async function executeDelegate() {
+    if (!walletConnected || !connectedWalletAddress) {
+        showError('Please connect your wallet first');
+        return;
+    }
+    
+    const stakeAccountAddress = document.getElementById('delegateStakeAccount').value.trim();
+    const voteAccountAddress = document.getElementById('delegateVoteAccount').value.trim();
+    const delegateBtn = document.getElementById('delegateStakeBtn');
+    
+    if (!stakeAccountAddress) {
+        showError('Stake account address is required');
+        return;
+    }
+    
+    if (!voteAccountAddress) {
+        showError('Vote account address is required');
+        return;
+    }
+    
+    // Validate stake account exists in our list
+    const stakeIndex = window.currentDelegateStakeIndex;
+    if (stakeIndex === null || !currentValidator.stakeAccounts[stakeIndex]) {
+        showError('Stake account not found');
+        return;
+    }
+    
+    const stakeAccount = currentValidator.stakeAccounts[stakeIndex];
+    
+    try {
+        // Update UI
+        if (delegateBtn) {
+            delegateBtn.disabled = true;
+            delegateBtn.classList.add('loading');
+            delegateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Delegating...';
+        }
+        
+        showInfo('Creating stake delegation transaction...', true);
+        
+        // Create public keys
+        const stakeAccountPubkey = new solanaWeb3.PublicKey(stakeAccountAddress);
+        const voteAccountPubkey = new solanaWeb3.PublicKey(voteAccountAddress);
+        const stakeAuthorityPubkey = new solanaWeb3.PublicKey(connectedWalletAddress);
+        
+        // Get latest blockhash
+        const { blockhash } = await connection.getLatestBlockhash('finalized');
+        
+        // Create transaction
+        const transaction = new solanaWeb3.Transaction({
+            recentBlockhash: blockhash,
+            feePayer: stakeAuthorityPubkey,
+        });
+        
+        // Create delegate instruction using StakeProgram - use wallet as authority
+        const delegateTransaction = solanaWeb3.StakeProgram.delegate({
+            stakePubkey: stakeAccountPubkey,
+            authorizedPubkey: stakeAuthorityPubkey, // Use connected wallet as stake authority
+            votePubkey: voteAccountPubkey,
+        });
+        
+        // Add delegate instruction to transaction
+        transaction.add(...delegateTransaction.instructions);
+        
+        console.log('Stake delegate transaction prepared:', {
+            stakeAccount: stakeAccountPubkey.toString(),
+            voteAccount: voteAccountPubkey.toString(),
+            stakeAuthority: stakeAuthorityPubkey.toString()
+        });
+        
+        // Request wallet to sign and send transaction
+        showInfo('Please approve the transaction in your wallet...', true);
+        
+        try {
+            // Sign with wallet only
+            const signedTransaction = await wallet.signTransaction(transaction);
+            console.log('Wallet signed transaction successfully');
+            
+            // Send transaction
+            const signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+                skipPreflight: false,
+                preflightCommitment: 'confirmed',
+                maxRetries: 3,
+            });
+            
+            console.log('Stake delegation transaction sent:', signature);
+            showInfo('Transaction sent! Waiting for confirmation...', true);
+            
+            // Wait for confirmation
+            try {
+                const confirmation = await connection.confirmTransaction(signature, 'confirmed');
+                
+                if (confirmation.value && confirmation.value.err) {
+                    throw new Error('Transaction failed: ' + confirmation.value.err);
+                }
+                
+                console.log('Transaction confirmed:', confirmation);
+
+                // Mark as delegated and update display
+                const stakeIndex = window.currentDelegateStakeIndex;
+                if (stakeIndex !== null && currentValidator.stakeAccounts[stakeIndex]) {
+                    currentValidator.stakeAccounts[stakeIndex].delegated = true;
+                    updateStakeAccountsDisplay();
+                }
+
+                const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                showSuccess(`✅ Stake delegated successfully! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+
+                // Close modal
+                hideDelegateModal();
+                
+            } catch (confirmationError) {
+                if (confirmationError.message.includes('timeout')) {
+                    const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                    showWarning(`⚠️ Transaction confirmation timeout. Please check transaction status: <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+                    hideDelegateModal();
+                } else {
+                    throw confirmationError;
+                }
+            }
+            
+        } catch (walletError) {
+            if (walletError.message && walletError.message.includes('Plugin Closed')) {
+                showWarning('Wallet plugin was closed during signing. Please check your wallet history to verify if the delegation was successful.');
+                hideDelegateModal();
+            } else {
+                throw walletError;
+            }
+        }
+        
+    } catch (error) {
+        console.error('Failed to delegate stake:', error);
+        
+        let errorMessage = 'Failed to delegate stake: ';
+        
+        if (error.message && error.message.includes('rejected')) {
+            errorMessage = 'Transaction was rejected by user';
+        } else if (error.message && error.message.includes('insufficient funds')) {
+            errorMessage = 'Insufficient funds for transaction fees';
+        } else if (error.message && error.message.includes('Invalid public key')) {
+            errorMessage = 'Invalid account address format';
+        } else {
+            errorMessage += error.message || 'Unknown error occurred';
+        }
+        
+        showError(errorMessage);
+        
+    } finally {
+        // Reset button state
+        if (delegateBtn) {
+            delegateBtn.disabled = false;
+            delegateBtn.classList.remove('loading');
+            delegateBtn.innerHTML = '<i class="fas fa-arrow-up"></i> Delegate Stake';
+        }
+    }
+}
+
+console.log('New Account JS loaded successfully');
+
+// Show create stake account modal
+function showCreateStakeAccountModal(stakeAccountAddress, stakeIndex) {
+    if (!walletConnected) {
+        showError('Please connect your wallet first');
+        return;
+    }
+    
+    const modal = document.getElementById('createStakeAccountModal');
+    const stakeAccountInput = document.getElementById('stakeAccountKey');
+    const stakeAuthorityInput = document.getElementById('stakeAuthority');
+    const withdrawAuthorityInput = document.getElementById('createStakeWithdrawAuthority');
+    
+    // Fill in stake account public key
+    if (stakeAccountInput) {
+        stakeAccountInput.value = stakeAccountAddress;
+    }
+    
+    // Set authorities to connected wallet
+    if (stakeAuthorityInput && connectedWalletAddress) {
+        stakeAuthorityInput.value = connectedWalletAddress;
+    }
+    
+    if (withdrawAuthorityInput && connectedWalletAddress) {
+        withdrawAuthorityInput.value = connectedWalletAddress;
+    }
+    
+    // Store stake index for later use
+    window.currentCreateStakeIndex = stakeIndex;
+    
+    if (modal) modal.classList.remove('hidden');
+}
+
+// Hide create stake account modal
+function hideCreateStakeAccountModal() {
+    const modal = document.getElementById('createStakeAccountModal');
+    if (modal) modal.classList.add('hidden');
+    
+    // Clean up
+    window.currentCreateStakeIndex = null;
+}
+
+// Create stake account on-chain
+async function createStakeAccount() {
+    const stakeAccountKey = document.getElementById('stakeAccountKey').value;
+    const stakeAuthorityKey = document.getElementById('stakeAuthority').value;
+    const withdrawAuthorityKey = document.getElementById('createStakeWithdrawAuthority').value;
+    const stakeAmount = document.getElementById('stakeAmount').value;
+    
+    // Validation
+    if (!stakeAccountKey) {
+        showError('Stake account public key is required');
+        return;
+    }
+    
+    if (!stakeAuthorityKey || !withdrawAuthorityKey) {
+        showError('Stake and withdraw authorities are required');
+        return;
+    }
+    
+    if (!stakeAmount || parseFloat(stakeAmount) <= 0) {
+        showError('Please enter a valid stake amount');
+        return;
+    }
+    
+    const stakeIndex = window.currentCreateStakeIndex;
+    if (stakeIndex === null || !currentValidator.stakeAccounts[stakeIndex]) {
+        showError('Stake account not found');
+        return;
+    }
+    
+    const stakeAccount = currentValidator.stakeAccounts[stakeIndex];
+    if (!stakeAccount.secretKey) {
+        showError('Stake account secret key not found');
+        return;
+    }
+    
+    if (!walletConnected || !connectedWalletAddress) {
+        showError('Please connect your wallet first');
+        return;
+    }
+    
+    try {
+        showInfo('Creating stake account transaction...', true);
+        
+        // Validate amount
+        const amountInLamports = Math.floor(parseFloat(stakeAmount) * solanaWeb3.LAMPORTS_PER_SOL);
+        if (amountInLamports < 1000000) { // Minimum ~0.001 SOL
+            showError('Minimum stake amount is 0.001 XNT');
+            return;
+        }
+        
+        // Create public keys
+        const stakeAccountPubkey = new solanaWeb3.PublicKey(stakeAccountKey);
+        const stakeAuthorityPubkey = new solanaWeb3.PublicKey(stakeAuthorityKey);
+        const withdrawAuthorityPubkey = new solanaWeb3.PublicKey(withdrawAuthorityKey);
+        const payerPubkey = new solanaWeb3.PublicKey(connectedWalletAddress);
+        
+        // Create stake account keypair from stored secret key
+        const stakeAccountKeypair = solanaWeb3.Keypair.fromSecretKey(
+            new Uint8Array(stakeAccount.secretKey)
+        );
+        
+        // Verify the public keys match
+        if (stakeAccountKeypair.publicKey.toString() !== stakeAccountKey) {
+            showError('Stake account keypair mismatch. Please regenerate stake account.');
+            return;
+        }
+        
+        // Calculate rent exemption amount
+        const rentExemptAmount = await connection.getMinimumBalanceForRentExemption(200); // Stake account space
+        const totalAmount = amountInLamports + rentExemptAmount;
+        
+        console.log('Creating stake account with:', {
+            stakeAccount: stakeAccountKey,
+            stakeAuthority: stakeAuthorityKey,
+            withdrawAuthority: withdrawAuthorityKey,
+            amount: stakeAmount,
+            totalLamports: totalAmount
+        });
+        
+        // Create stake account instruction
+        const createStakeAccountInstruction = solanaWeb3.StakeProgram.createAccount({
+            fromPubkey: payerPubkey,
+            stakePubkey: stakeAccountPubkey,
+            authorized: {
+                staker: stakeAuthorityPubkey,
+                withdrawer: withdrawAuthorityPubkey,
+            },
+            lamports: totalAmount
+        });
+        
+        // Create transaction
+        const transaction = new solanaWeb3.Transaction();
+        transaction.add(createStakeAccountInstruction);
+        
+        // Get recent blockhash
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = payerPubkey;
+        
+        console.log('Stake account transaction prepared');
+        
+        // Request wallet to sign and send transaction with additional signers
+        showInfo('Please approve the transaction in your wallet...', true);
+        
+        let signature;
+        try {
+            console.log('Requesting wallet signature for stake account creation...');
+            
+            // Step 1: First sign with the stake account keypair (offline)
+            transaction.partialSign(stakeAccountKeypair);
+            console.log('Stake account keypair signed transaction');
+            
+            // Step 2: Then sign with wallet (this will add the payer signature)
+            const signedTransaction = await wallet.signTransaction(transaction);
+            console.log('Wallet signed transaction successfully');
+            
+            // Step 3: Send signed transaction
+            signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+                skipPreflight: false,
+                preflightCommitment: 'confirmed',
+                maxRetries: 3,
+            });
+            
+            console.log('Stake account creation transaction sent with signature:', signature);
+            
+        } catch (walletError) {
+            // Handle "Plugin Closed" error specifically
+            if (walletError.message && walletError.message.includes('Plugin Closed')) {
+                console.log('Plugin closed error detected, checking if stake account was created...');
+                
+                // Wait a bit for potential transaction to be processed
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                // Try to check if stake account was created by checking its existence
+                try {
+                    const stakeAccountInfo = await connection.getAccountInfo(stakeAccountPubkey);
+                    
+                    if (stakeAccountInfo && stakeAccountInfo.lamports > 0) {
+                        console.log('Stake account exists, transaction likely successful');
+                        
+                        // Mark as initialized and update display
+                        currentValidator.stakeAccounts[stakeIndex].initialized = true;
+                        updateStakeAccountsDisplay();
+                        
+                        // Show success message without transaction link
+                        showSuccess('✅ Stake account creation appears successful! The account has been created.');
+                        
+                        // Hide modal
+                        hideCreateStakeAccountModal();
+                        return; // Exit successfully
+                    } else {
+                        console.log('Stake account does not exist, transaction may have failed');
+                        throw new Error('Transaction may have failed - stake account was not created after wallet plugin closed');
+                    }
+                } catch (accountCheckError) {
+                    console.error('Failed to check stake account existence:', accountCheckError);
+                    throw new Error('Wallet plugin closed during signing. Please check your wallet history to verify if the stake account was created.');
+                }
+            } else {
+                throw walletError; // Re-throw other wallet errors
+            }
+        }
+
+        if (signature) {
+            console.log('Stake account created successfully! Signature:', signature);
+            
+            // Wait for confirmation
+            showInfo('Confirming transaction...', true);
+            
+            try {
+                // Wait for confirmation with timeout
+                const confirmationPromise = connection.confirmTransaction(signature, 'confirmed');
+
+                // Add timeout to avoid waiting forever
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Transaction confirmation timeout')), 45000)
+                );
+
+                const confirmation = await Promise.race([confirmationPromise, timeoutPromise]);
+                
+                if (confirmation.value && confirmation.value.err) {
+                    throw new Error('Transaction failed: ' + confirmation.value.err);
+                }
+
+                console.log('Transaction confirmed:', confirmation);
+
+                // Mark as initialized and update display
+                currentValidator.stakeAccounts[stakeIndex].initialized = true;
+                updateStakeAccountsDisplay();
+
+                // Success
+                const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                showSuccess(`✅ Stake account created successfully! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+        
+                // Hide modal
+                hideCreateStakeAccountModal();
+                
+            } catch (confirmationError) {
+                if (confirmationError.message.includes('timeout')) {
+                    // Even if confirmation times out, check if the account was created
+                    try {
+                        const stakeAccountInfo = await connection.getAccountInfo(stakeAccountPubkey);
+                        if (stakeAccountInfo && stakeAccountInfo.lamports > 0) {
+                            // Mark as initialized and update display
+                            currentValidator.stakeAccounts[stakeIndex].initialized = true;
+                            updateStakeAccountsDisplay();
+                            
+                            const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                            showWarning(`⚠️ Transaction confirmation timeout, but stake account appears to have been created. <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+                            hideCreateStakeAccountModal();
+                        } else {
+                            const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                            showWarning(`⚠️ Transaction confirmation timeout. Please check the transaction status: <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+                            hideCreateStakeAccountModal();
+                        }
+                    } catch (accountCheckError) {
+                        const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                        showWarning(`⚠️ Transaction confirmation timeout. Please check the transaction status: <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+                        hideCreateStakeAccountModal();
+                    }
+                } else {
+                    throw confirmationError;
+                }
+            }
+        }
+        
+    } catch (error) {
+        console.error('Failed to create stake account:', error);
+        
+        // Handle specific error types
+        let errorMessage = 'Failed to create stake account: ';
+        
+        if (error.message && error.message.includes('Plugin Closed')) {
+            errorMessage = 'Wallet plugin was closed during signing. Please check your wallet history to verify if the stake account was created successfully.';
+        } else if (error.message && error.message.includes('User rejected') || error.message && error.message.includes('rejected')) {
+            errorMessage = 'Transaction was rejected by user';
+        } else if (error.message && error.message.includes('insufficient funds') || error.message && error.message.includes('Insufficient')) {
+            errorMessage = 'Insufficient funds for transaction fees and stake amount';
+        } else if (error.message && error.message.includes('Invalid public key')) {
+            errorMessage = 'Invalid account address format';
+        } else {
+            errorMessage += error.message || 'Unknown error occurred';
+        }
+        
+        showError(errorMessage);
+    }
+}
 
 console.log('New Account JS loaded successfully');
