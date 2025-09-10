@@ -269,6 +269,7 @@ function updateVoteAccountsDisplay() {
 function updateStakeAccountsDisplay() {
     const existingCount = document.querySelector('[data-type="stake"] .existing-accounts');
     const stakeAccountsList = document.getElementById('stakeAccountsList');
+    const generatedSection = document.querySelector('[data-type="stake"] .generated-accounts');
     
     if (existingCount) {
         if (currentValidator.stakeAccounts.length > 0) {
@@ -277,6 +278,15 @@ function updateStakeAccountsDisplay() {
         } else {
             existingCount.textContent = 'No accounts';
             existingCount.classList.add('none');
+        }
+    }
+    
+    // Show/hide the generated accounts section based on whether there are any accounts
+    if (generatedSection) {
+        if (currentValidator.stakeAccounts.length > 0) {
+            generatedSection.style.display = 'block';
+        } else {
+            generatedSection.style.display = 'none';
         }
     }
     
