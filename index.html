@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/base.css?v=20250911">
     <link rel="stylesheet" href="css/manage_account.css?v=20250911">
-    <link rel="stylesheet" href="css/new_account.css?v=20250911">
+    <link rel="stylesheet" href="css/new_account.css?v=2025091102">
     <!-- Add Solana Web3.js SDK -->
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
     <!-- Add BIP39 library for mnemonic generation -->
@@ -714,16 +714,16 @@
                                 <input type="radio" name="identityDerivationMethod" value="hd" id="identityHdMethod" checked>
                                 <label for="identityHdMethod">
                                     <i class="fas fa-route"></i>
-                                    <span>HD Wallet (Default)</span>
-                                    <small>Uses derivation path m/44'/501'/0'/0'</small>
+                                    <span>HD Wallet</span>
+                                    <small>Uses derivation path m/44'/501'/0'/x'</small>
                                 </label>
                             </div>
                             <div class="method-option">
                                 <input type="radio" name="identityDerivationMethod" value="cli" id="identityCliMethod">
                                 <label for="identityCliMethod">
                                     <i class="fas fa-terminal"></i>
-                                    <span>Solana CLI Style</span>
-                                    <small>Direct seed conversion (like solana-keygen)</small>
+                                    <span>Solana CLI</span>
+                                    <small>Seed conversion like solana-keygen</small>
                                 </label>
                             </div>
                         </div>

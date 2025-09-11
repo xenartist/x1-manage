@@ -3508,31 +3508,55 @@ function hideModalError(modalId) {
     }
 }
 
-// Enhanced toggle function with proper event handling
+// setup derivation method toggle
 function setupDerivationMethodToggle(accountType) {
-    const methodRadios = document.getElementsByName(`${accountType}DerivationMethod`);
     const pathSection = document.getElementById(`${accountType}DerivationPathSection`);
     
     if (!pathSection) return;
     
-    // Add event listeners to all radio buttons
-    methodRadios.forEach(radio => {
-        radio.addEventListener('change', function() {
-            if (this.value === 'cli') {
+    // Function to update visibility based on current state
+    function updateVisibility() {
+        const checkedRadio = document.querySelector(`input[name="${accountType}DerivationMethod"]:checked`);
+        if (checkedRadio) {
+            if (checkedRadio.value === 'cli') {
                 pathSection.style.display = 'none';
-                console.log(`💡 ${accountType} account: Switched to Solana CLI mode - derivation path hidden`);
+                console.log(`💡 ${accountType}: CLI mode - path hidden`);
             } else {
                 pathSection.style.display = 'block';
-                console.log(`💡 ${accountType} account: Switched to HD Wallet mode - derivation path visible`);
+                console.log(`💡 ${accountType}: HD mode - path visible`);
+            }
+        }
+    }
+    
+    // use event delegation to listen to the entire import method selection area
+    const importMethodSection = document.querySelector(`.import-derivation-method`);
+    if (importMethodSection) {
+        importMethodSection.addEventListener('click', function(e) {
+            // check if the clicked target is a radio button or its container
+            const target = e.target;
+            const radioInput = target.closest('.method-option')?.querySelector('input[type="radio"]');
+            
+            if (radioInput && radioInput.name === `${accountType}DerivationMethod`) {
+                // ensure the radio is checked
+                if (!radioInput.checked) {
+                    radioInput.checked = true;
+                }
+                
+                // delay update to ensure the DOM state is updated
+                setTimeout(updateVisibility, 20);
             }
         });
-    });
-    
-    // Set initial state based on checked radio
-    const checkedRadio = document.querySelector(`input[name="${accountType}DerivationMethod"]:checked`);
-    if (checkedRadio && checkedRadio.value === 'cli') {
-        pathSection.style.display = 'none';
+        
+        // also listen to change event as a backup
+        importMethodSection.addEventListener('change', function(e) {
+            if (e.target.name === `${accountType}DerivationMethod`) {
+                setTimeout(updateVisibility, 10);
+            }
+        });
     }
+    
+    // Set initial state
+    updateVisibility();
 }
 
 // Initialize all derivation method toggles when modals are opened

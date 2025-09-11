@@ -1532,80 +1532,89 @@
 
 /* Import Derivation Method Selection Styles */
 .import-derivation-method {
-    margin-bottom: 20px;
-    padding: 16px;
-    background: #f8f9fa;
+    background: #f8fafc;
     border-radius: 8px;
-    border-left: 4px solid #007bff;
+    padding: 20px;
+    margin-bottom: 20px;
 }
 
-.import-derivation-method label {
+.import-derivation-method > label {
+    color: #374151;
+    font-size: 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-weight: 600;
-    color: #333;
-    margin-bottom: 12px;
-    display: block;
 }
 
 .derivation-method-options {
     display: flex;
-    gap: 16px;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 12px;
 }
 
 .derivation-method-options .method-option {
-    flex: 1;
-    min-width: 200px;
-    position: relative;
-}
-
-.derivation-method-options .method-option input[type="radio"] {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.derivation-method-options .method-option label {
-    display: block;
-    padding: 12px 16px;
     background: white;
-    border: 2px solid #e9ecef;
+    border: 2px solid #e2e8f0;
     border-radius: 8px;
+    padding: 16px;
     cursor: pointer;
     transition: all 0.2s ease;
-    font-weight: normal;
-    margin-bottom: 0;
 }
 
-.derivation-method-options .method-option label:hover {
-    border-color: #007bff;
-    background: #f0f7ff;
+.derivation-method-options .method-option:hover {
+    border-color: #667eea;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
 }
 
 .derivation-method-options .method-option input[type="radio"]:checked + label {
-    border-color: #007bff;
-    background: #e7f3ff;
-    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+    background: rgba(102, 126, 234, 0.05);
+}
+
+.derivation-method-options .method-option:has(input[type="radio"]:checked) {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.05);
+}
+
+.derivation-method-options .method-option input[type="radio"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #667eea;
+    position: absolute;
+    opacity: 0;
+}
+
+.derivation-method-options .method-option label {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+    margin: 0;
+    font-weight: normal;
 }
 
 .derivation-method-options .method-option label i {
-    color: #007bff;
-    margin-right: 8px;
+    color: #667eea;
     font-size: 16px;
+    margin-top: 2px;
+    width: 16px;
+    flex-shrink: 0;
 }
 
 .derivation-method-options .method-option label span {
-    display: block;
     font-weight: 600;
-    color: #333;
+    color: #374151;
     margin-bottom: 4px;
+    display: block;
 }
 
 .derivation-method-options .method-option label small {
+    color: #6b7280;
+    font-size: 13px;
+    margin: 0;
+    font-weight: normal;
     display: block;
-    color: #666;
-    font-size: 12px;
-    line-height: 1.3;
 }
 
 /* Hide derivation path section when CLI method is selected */
@@ -1616,10 +1625,10 @@
 /* Responsive design for smaller screens */
 @media (max-width: 768px) {
     .derivation-method-options {
-        flex-direction: column;
+        gap: 8px;
     }
     
     .derivation-method-options .method-option {
-        min-width: 100%;
+        padding: 12px;
     }
 }
