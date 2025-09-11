@@ -1492,14 +1492,17 @@ async function createVoteAccount() {
                     if (voteAccountInfo && voteAccountInfo.data && voteAccountInfo.data.length > 0) {
                         console.log('Vote account exists, transaction likely successful');
                         
+                        // Mark vote account as initialized and update display
+                        if (currentValidator.voteAccount) {
+                            currentValidator.voteAccount.initialized = true;
+                        }
+                        updateVoteAccountsDisplay();
+                        
                         // Show success message without transaction link
                         showSuccess('✅ Vote account creation appears successful! The account has been created. Please check your wallet for confirmation.');
                         
                         // Hide modal
                         hideCreateVoteAccountModal();
-                        
-                        // Update vote account card status to disabled
-                        updateVoteAccountCardStatus();
                         return; // Exit successfully
                     } else {
                         console.log('Vote account does not exist, transaction may have failed');
@@ -1537,15 +1540,20 @@ async function createVoteAccount() {
 
                 console.log('Transaction confirmed:', confirmation);
 
+                // Mark vote account as initialized and update display
+                if (currentValidator.voteAccount) {
+                    currentValidator.voteAccount.initialized = true;
+                }
+                
+                // Update vote accounts display to reflect initialized status
+                updateVoteAccountsDisplay();
+
                 // Success
                 const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
-                showSuccess(`✅ Vote account created successfully! ${explorerUrl}`);
+                showSuccess(`✅ Vote account created successfully! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
         
                 // Hide modal
                 hideCreateVoteAccountModal();
-                
-                // Update vote account card status to disabled (like identity account after creation)
-                updateVoteAccountCardStatus();
                 
             } catch (confirmationError) {
                 if (confirmationError.message.includes('timeout')) {
@@ -1553,18 +1561,23 @@ async function createVoteAccount() {
                     try {
                         const voteAccountInfo = await connection.getAccountInfo(voteAccountPubkey);
                         if (voteAccountInfo && voteAccountInfo.data && voteAccountInfo.data.length > 0) {
+                            // Mark vote account as initialized and update display
+                            if (currentValidator.voteAccount) {
+                                currentValidator.voteAccount.initialized = true;
+                            }
+                            updateVoteAccountsDisplay();
+                            
                             const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
-                            showWarning(`⚠️ Transaction confirmation timeout, but vote account appears to have been created. Please verify: ${explorerUrl}`);
+                            showWarning(`⚠️ Transaction confirmation timeout, but vote account appears to have been created. <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
                             hideCreateVoteAccountModal();
-                            updateVoteAccountCardStatus();
                         } else {
                             const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
-                            showWarning(`⚠️ Transaction confirmation timeout. Please check the transaction status: ${explorerUrl}`);
+                            showWarning(`⚠️ Transaction confirmation timeout. Please check the transaction status: <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
                             hideCreateVoteAccountModal();
                         }
                     } catch (accountCheckError) {
                         const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
-                        showWarning(`⚠️ Transaction confirmation timeout. Please check the transaction status: ${explorerUrl}`);
+                        showWarning(`⚠️ Transaction confirmation timeout. Please check the transaction status: <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
                         hideCreateVoteAccountModal();
                     }
                 } else {
