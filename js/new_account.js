@@ -433,12 +433,24 @@ function showGenerationModal(accountType) {
     // Reset modal state
     resetModalState();
     
+    // clear previous generation state, allow user to start over
+    window.currentGeneratedAccount = null;
+    seedVerificationData = {
+        originalSeed: [],
+        shuffledSeed: [],
+        userSelectedSeed: [],
+        isVerified: false
+    };
+    
+    // ensure close button is available
+    enableMainModalClose();
+    
     if (modal) modal.classList.remove('hidden');
 }
 
 // Hide generation modal
 function hideGenerationModal() {
-    // 如果有生成的账户但未验证种子，阻止关闭
+    // if there is a generated account but not verified, prevent closing
     if (window.currentGeneratedAccount && !seedVerificationData.isVerified) {
         showWarning('Please verify your seed phrase before closing this dialog.');
         return;
@@ -448,7 +460,7 @@ function hideGenerationModal() {
     if (modal) modal.classList.add('hidden');
     resetModalState();
     
-    // 重置验证状态
+    // reset verification state
     seedVerificationData = {
         originalSeed: [],
         shuffledSeed: [],
@@ -881,6 +893,9 @@ function hideSeedVerification() {
     if (verificationModal) {
         verificationModal.classList.add('hidden');
     }
+    
+    // re-enable main modal close button
+    enableMainModalClose();
     
     // if verification successful, close main modal
     if (seedVerificationData.isVerified) {
