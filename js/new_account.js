@@ -159,10 +159,20 @@ function updateVoteAccountsDisplay() {
             existingCount.textContent = `1 account ${accountType}`;
             existingCount.classList.remove('none');
         }
+        
+        // Only show disabled/masked state if vote account is fully initialized
         if (voteCard) {
-            voteCard.classList.add('disabled');
             voteCard.classList.add('has-account');
+            
+            if (currentValidator.voteAccount.initialized) {
+                // Fully initialized - show masked/disabled state
+                voteCard.classList.add('disabled');
+            } else {
+                // Just generated but not initialized - don't mask, user still needs to take action
+                voteCard.classList.remove('disabled');
+            }
         }
+        
         if (generatedSection) generatedSection.style.display = 'block';
         
         // Update section title based on whether account was imported or generated
@@ -1328,6 +1338,9 @@ async function createVoteAccount() {
     const withdrawAuthorityKey = document.getElementById('withdrawAuthorityKey').value;
     const commission = document.getElementById('voteCommission').value;
     
+    // Get the create button
+    const createBtn = document.querySelector('#createVoteAccountModal .btn-confirm');
+    
     // Validation
     if (!voteAccountKey) {
         showError('Vote account public key is required');
@@ -1358,6 +1371,13 @@ async function createVoteAccount() {
     }
     
     try {
+        // Update button to loading state
+        if (createBtn) {
+            createBtn.disabled = true;
+            createBtn.classList.add('loading');
+            createBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Vote Account...';
+        }
+        
         showInfo('Creating vote account transaction...', true);
         
         // Validate commission (0-100%)
@@ -1561,8 +1581,6 @@ async function createVoteAccount() {
         
         if (error.message && error.message.includes('Plugin Closed')) {
             errorMessage = 'Wallet plugin was closed during signing. Please check your wallet history to verify if the vote account was created successfully.';
-        } else if (error.message && error.message.includes('vote account was not created')) {
-            errorMessage = 'Transaction may have failed - the vote account was not created. Please check your wallet for any error messages.';
         } else if (error.message && error.message.includes('User rejected') || error.message && error.message.includes('rejected')) {
             errorMessage = 'Transaction was rejected by user';
         } else if (error.message && error.message.includes('insufficient funds') || error.message && error.message.includes('Insufficient')) {
@@ -1578,6 +1596,13 @@ async function createVoteAccount() {
         }
         
         showError(errorMessage);
+    } finally {
+        // Reset button state
+        if (createBtn) {
+            createBtn.disabled = false;
+            createBtn.classList.remove('loading');
+            createBtn.innerHTML = '<i class="fas fa-plus-circle"></i> Create Vote Account';
+        }
     }
 }
 
@@ -2377,6 +2402,9 @@ async function createStakeAccount() {
     const withdrawAuthorityKey = document.getElementById('createStakeWithdrawAuthority').value;
     const stakeAmount = document.getElementById('stakeAmount').value;
     
+    // Get the create button
+    const createBtn = document.querySelector('#createStakeAccountModal .btn-confirm');
+    
     // Validation
     if (!stakeAccountKey) {
         showError('Stake account public key is required');
@@ -2411,6 +2439,13 @@ async function createStakeAccount() {
     }
     
     try {
+        // Update button to loading state
+        if (createBtn) {
+            createBtn.disabled = true;
+            createBtn.classList.add('loading');
+            createBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Stake Account...';
+        }
+        
         showInfo('Creating stake account transaction...', true);
         
         // Validate amount
@@ -2615,6 +2650,13 @@ async function createStakeAccount() {
         }
         
         showError(errorMessage);
+    } finally {
+        // Reset button state
+        if (createBtn) {
+            createBtn.disabled = false;
+            createBtn.classList.remove('loading');
+            createBtn.innerHTML = '<i class="fas fa-plus-circle"></i> Create Stake Account';
+        }
     }
 }
 
