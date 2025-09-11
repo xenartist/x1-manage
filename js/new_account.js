@@ -1892,21 +1892,17 @@ async function importIdentityAccount() {
 // Import from seed
 async function importFromSeed() {
     const seedInput = document.getElementById('seedInput');
+    const derivationMethodRadios = document.getElementsByName('identityDerivationMethod');
     const derivationPath = document.getElementById('importDerivationPath');
     
-    if (!seedInput || !derivationPath) {
+    if (!seedInput) {
         throw new Error('Required input fields not found');
     }
     
     const seedText = seedInput.value.trim();
-    const derivationPathValue = derivationPath.value.trim();
     
     if (!seedText) {
         throw new Error('Please enter your recovery seed phrase');
-    }
-    
-    if (!derivationPathValue) {
-        throw new Error('Please enter a derivation path');
     }
     
     // Validate and parse seed
@@ -1916,14 +1912,45 @@ async function importFromSeed() {
         throw new Error('Recovery seed must be exactly 12 words');
     }
     
-    // Generate keypair from seed
-    const keypairData = await generateKeypairFromSeed(seedWords, derivationPathValue);
+    // Get selected derivation method
+    let selectedMethod = 'hd'; // default
+    for (const radio of derivationMethodRadios) {
+        if (radio.checked) {
+            selectedMethod = radio.value;
+            break;
+        }
+    }
+    
+    let keypairData;
+    let derivationPathValue;
+    
+    if (selectedMethod === 'cli') {
+        // Use Solana CLI style - 使用和控制台测试完全一样的函数
+        console.log('🔧 Using Solana CLI derivation method');
+        keypairData = await generateKeypairFromSeedCLI(seedWords);
+        derivationPathValue = 'solana-cli-direct';
+    } else {
+        // Use HD Wallet style - 现有的逻辑
+        if (!derivationPath) {
+            throw new Error('Derivation path field not found');
+        }
+        
+        derivationPathValue = derivationPath.value.trim();
+        
+        if (!derivationPathValue) {
+            throw new Error('Please enter a derivation path');
+        }
+        
+        console.log('🏦 Using HD Wallet derivation method');
+        keypairData = await generateKeypairFromSeed(seedWords, derivationPathValue);
+    }
     
     return {
         publicKey: keypairData.publicKey,
         secretKey: keypairData.secretKey,
         seed: seedWords,
         derivationPath: derivationPathValue,
+        derivationMethod: selectedMethod,
         createdAt: new Date().toISOString(),
         accountType: ACCOUNT_TYPES.IDENTITY,
         imported: true,
@@ -3478,5 +3505,97 @@ function hideModalError(modalId) {
     const errorElement = document.getElementById(errorElementId);
     if (errorElement) {
         errorElement.classList.add('hidden');
+    }
+}
+
+// Enhanced toggle function with proper event handling
+function setupDerivationMethodToggle(accountType) {
+    const methodRadios = document.getElementsByName(`${accountType}DerivationMethod`);
+    const pathSection = document.getElementById(`${accountType}DerivationPathSection`);
+    
+    if (!pathSection) return;
+    
+    // Add event listeners to all radio buttons
+    methodRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'cli') {
+                pathSection.style.display = 'none';
+                console.log(`💡 ${accountType} account: Switched to Solana CLI mode - derivation path hidden`);
+            } else {
+                pathSection.style.display = 'block';
+                console.log(`💡 ${accountType} account: Switched to HD Wallet mode - derivation path visible`);
+            }
+        });
+    });
+    
+    // Set initial state based on checked radio
+    const checkedRadio = document.querySelector(`input[name="${accountType}DerivationMethod"]:checked`);
+    if (checkedRadio && checkedRadio.value === 'cli') {
+        pathSection.style.display = 'none';
+    }
+}
+
+// Initialize all derivation method toggles when modals are opened
+function showImportIdentityModal() {
+    const modal = document.getElementById('importIdentityModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        // Setup derivation method toggle when modal is shown
+        setTimeout(() => setupDerivationMethodToggle('identity'), 100);
+    }
+}
+
+function showImportVoteModal() {
+    const modal = document.getElementById('importVoteModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        // Setup derivation method toggle when modal is shown
+        setTimeout(() => setupDerivationMethodToggle('vote'), 100);
+    }
+}
+
+function showImportStakeModal() {
+    const modal = document.getElementById('importStakeModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        // Setup derivation method toggle when modal is shown
+        setTimeout(() => setupDerivationMethodToggle('stake'), 100);
+    }
+}
+
+// Generate keypair using Solana CLI style (direct from seed)
+async function generateKeypairFromSeedCLI(seedWords) {
+    const seedPhrase = seedWords.join(' ');
+    
+    try {
+        // Check if BIP39 is available
+        if (typeof bip39 === 'undefined' || !bip39.mnemonicToSeed) {
+            throw new Error('BIP39 library not available');
+        }
+        
+        console.log('🔧 Using Solana CLI style derivation (direct from seed)');
+        
+        // Step 1: Convert mnemonic to 512-bit seed (BIP39)
+        const seedBuffer = await bip39.mnemonicToSeed(seedPhrase);
+        console.log('✅ Generated 512-bit seed buffer, length:', seedBuffer.length);
+        
+        // Step 2: Take first 32 bytes as Ed25519 private key seed (Solana CLI style)
+        const solanaCliSeed = new Uint8Array(seedBuffer.slice(0, 32));
+        console.log('✅ Extracted first 32 bytes as private key seed');
+        
+        // Step 3: Create Solana keypair from seed
+        const solanaCliKeypair = solanaWeb3.Keypair.fromSeed(solanaCliSeed);
+        
+        console.log('✅ Solana CLI style derivation successful');
+        console.log('✅ Public key generated:', solanaCliKeypair.publicKey.toString());
+        
+        return {
+            publicKey: solanaCliKeypair.publicKey.toString(),
+            secretKey: Array.from(solanaCliKeypair.secretKey)
+        };
+        
+    } catch (error) {
+        console.error('❌ Failed to generate keypair using CLI style:', error);
+        throw new Error('Failed to generate keypair using Solana CLI style: ' + error.message);
     }
 }

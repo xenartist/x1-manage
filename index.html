@@ -702,9 +702,33 @@
                     </div>
                 </div>
 
-                <!-- Seed Import Section -->
+                <!-- Seed Import Section for Identity Account -->
                 <div id="seedImportSection" class="import-section">
                     <h4><i class="fas fa-seedling"></i> Recovery Seed Import</h4>
+                    
+                    <!-- Import Method Selection -->
+                    <div class="import-derivation-method">
+                        <label>Derivation Method:</label>
+                        <div class="derivation-method-options">
+                            <div class="method-option">
+                                <input type="radio" name="identityDerivationMethod" value="hd" id="identityHdMethod" checked>
+                                <label for="identityHdMethod">
+                                    <i class="fas fa-route"></i>
+                                    <span>HD Wallet (Default)</span>
+                                    <small>Uses derivation path m/44'/501'/0'/0'</small>
+                                </label>
+                            </div>
+                            <div class="method-option">
+                                <input type="radio" name="identityDerivationMethod" value="cli" id="identityCliMethod">
+                                <label for="identityCliMethod">
+                                    <i class="fas fa-terminal"></i>
+                                    <span>Solana CLI Style</span>
+                                    <small>Direct seed conversion (like solana-keygen)</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="seed-input-area">
                         <label for="seedInput">Enter your 12-word recovery seed:</label>
                         <textarea 
@@ -716,7 +740,7 @@
                         <small>Separate words with spaces. Words are case-sensitive.</small>
                     </div>
                     
-                    <div class="derivation-path-section">
+                    <div id="identityDerivationPathSection" class="derivation-path-section">
                         <label for="importDerivationPath">Derivation Path:</label>
                         <div class="derivation-path-group">
                             <input type="text" id="importDerivationPath" class="derivation-input" placeholder="m/44'/501'/0'/0'" value="m/44'/501'/0'/0'">
@@ -809,9 +833,33 @@
                     </div>
                 </div>
 
-                <!-- Seed Import Section -->
+                <!-- Seed Import Section for Vote Account -->
                 <div id="voteSeedImportSection" class="import-section">
                     <h4><i class="fas fa-seedling"></i> Recovery Seed Import</h4>
+                    
+                    <!-- Import Method Selection -->
+                    <div class="import-derivation-method">
+                        <label>Derivation Method:</label>
+                        <div class="derivation-method-options">
+                            <div class="method-option">
+                                <input type="radio" name="voteDerivationMethod" value="hd" id="voteHdMethod" checked>
+                                <label for="voteHdMethod">
+                                    <i class="fas fa-route"></i>
+                                    <span>HD Wallet (Default)</span>
+                                    <small>Uses derivation path m/44'/501'/0'/0'</small>
+                                </label>
+                            </div>
+                            <div class="method-option">
+                                <input type="radio" name="voteDerivationMethod" value="cli" id="voteCliMethod">
+                                <label for="voteCliMethod">
+                                    <i class="fas fa-terminal"></i>
+                                    <span>Solana CLI Style</span>
+                                    <small>Direct seed conversion (like solana-keygen)</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="seed-input-area">
                         <label for="voteSeedInput">Enter your 12-word recovery seed:</label>
                         <textarea 
@@ -823,7 +871,7 @@
                         <small>Separate words with spaces. Words are case-sensitive.</small>
                     </div>
                     
-                    <div class="derivation-path-section">
+                    <div id="voteDerivationPathSection" class="derivation-path-section">
                         <label for="importVoteDerivationPath">Derivation Path:</label>
                         <div class="derivation-path-group">
                             <input type="text" id="importVoteDerivationPath" class="derivation-input" placeholder="m/44'/501'/0'/0'" value="m/44'/501'/0'/0'">
@@ -1049,9 +1097,33 @@
                     </div>
                 </div>
 
-                <!-- Seed Import Section -->
+                <!-- Seed Import Section for Stake Account -->
                 <div id="stakeSeedImportSection" class="import-section">
                     <h4><i class="fas fa-seedling"></i> Recovery Seed Import</h4>
+                    
+                    <!-- Import Method Selection -->
+                    <div class="import-derivation-method">
+                        <label>Derivation Method:</label>
+                        <div class="derivation-method-options">
+                            <div class="method-option">
+                                <input type="radio" name="stakeDerivationMethod" value="hd" id="stakeHdMethod" checked>
+                                <label for="stakeHdMethod">
+                                    <i class="fas fa-route"></i>
+                                    <span>HD Wallet (Default)</span>
+                                    <small>Uses derivation path m/44'/501'/0'/0'</small>
+                                </label>
+                            </div>
+                            <div class="method-option">
+                                <input type="radio" name="stakeDerivationMethod" value="cli" id="stakeCliMethod">
+                                <label for="stakeCliMethod">
+                                    <i class="fas fa-terminal"></i>
+                                    <span>Solana CLI Style</span>
+                                    <small>Direct seed conversion (like solana-keygen)</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="seed-input-area">
                         <label for="stakeSeedInput">Enter your 12-word recovery seed:</label>
                         <textarea 
@@ -1063,7 +1135,7 @@
                         <small>Separate words with spaces. Words are case-sensitive.</small>
                     </div>
                     
-                    <div class="derivation-path-section">
+                    <div id="stakeDerivationPathSection" class="derivation-path-section">
                         <label for="importStakeDerivationPath">Derivation Path:</label>
                         <div class="derivation-path-group">
                             <input type="text" id="importStakeDerivationPath" class="derivation-input" placeholder="m/44'/501'/0'/0'" value="m/44'/501'/0'/0'">
