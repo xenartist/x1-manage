@@ -348,6 +348,27 @@ function hideResults() {
     updateWithdrawButtonState(false);
     // Show vote info section in case it was hidden for stake-only search
     showVoteInfo();
+    
+    // Clear stake tabs immediately to prevent showing old results
+    clearStakeTabs();
+}
+
+// Helper function to clear stake tabs
+function clearStakeTabs() {
+    const stakeTabsContainer = document.getElementById('stakeTabs');
+    const stakeTabsContent = document.getElementById('stakeTabsContent');
+    
+    if (stakeTabsContainer) {
+        stakeTabsContainer.innerHTML = '';
+    }
+    if (stakeTabsContent) {
+        stakeTabsContent.innerHTML = '';
+    }
+    
+    // Also clear the global stake accounts array
+    currentStakeAccounts = [];
+    
+    console.log('Cleared stake tabs and cache');
 }
 
 // Check if connected wallet address matches withdraw authority
