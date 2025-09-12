@@ -907,15 +907,6 @@ async function createStakeTab(stakeAccount, index, currentEpoch = null) {
     const showDeactivateButton = hasStakeAuthority && activeStake > 0 && stakeStatus.text === 'Active';
     
     tabContent.innerHTML = `
-        <div class="stake-summary-card">
-            <div class="stake-summary-title">
-                <i class="fas fa-layer-group"></i>
-                Stake Account #${index + 1}
-                <span class="stake-rank-badge">Rank ${index + 1}</span>
-                ${hasAnyAuthority ? '<span class="user-authority-badge">Your Account</span>' : ''}
-            </div>
-        </div>
-        
         <div class="info-grid">
             <!-- Stake Account Address -->
             <div class="info-card">
