@@ -639,6 +639,8 @@ function switchTab(tabId) {
     // update tab content
     document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.remove('active');
+        // Clear any inline display styles that might interfere with CSS
+        content.style.display = '';
     });
     
     const targetContent = document.getElementById(tabId);
@@ -2254,14 +2256,11 @@ async function getStakeAccountInfo(stakeAccountPubkey) {
 // Hide vote account info section
 function hideVoteInfo() {
     const voteTab = document.querySelector('[onclick="switchTab(\'vote-info\')"]');
-    const voteInfo = document.getElementById('vote-info');
     
     if (voteTab) {
         voteTab.style.display = 'none';
     }
-    if (voteInfo) {
-        voteInfo.style.display = 'none';
-    }
+    // Don't manipulate vote-info content display directly - let CSS handle it
 }
 
 // Show vote account info section (for when switching back to vote account search)
@@ -2273,7 +2272,8 @@ function showVoteInfo() {
         voteTab.style.display = 'block';
     }
     if (voteInfo) {
-        voteInfo.style.display = 'block';
+        // Clear any inline display style that might interfere with CSS
+        voteInfo.style.display = '';
     }
 }
 
