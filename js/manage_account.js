@@ -54,6 +54,25 @@ function onWalletConnected() {
     // Re-check current results if any
     if (!resultsSection.classList.contains('hidden')) {
         setTimeout(() => checkWithdrawAuthorityMatch(), 100);
+        
+        // Refresh stake accounts if we're showing a vote account
+        const accountStr = voteAccountInput.value.trim();
+        if (accountStr) {
+            showInfo('Refreshing stake accounts with your connected wallet...', true);
+            setTimeout(async () => {
+                try {
+                    const accountPubkey = new solanaWeb3.PublicKey(accountStr);
+                    const accountType = await detectAccountType(accountPubkey);
+                    if (accountType === 'vote') {
+                        // Re-run the search to show user's authorized stake accounts
+                        handleSearch();
+                    }
+                } catch (error) {
+                    hideInfo();
+                    console.error('Failed to refresh stake accounts:', error);
+                }
+            }, 500);
+        }
     }
 }
 
@@ -171,13 +190,13 @@ async function handleVoteAccountSearch(voteAccountPubkey, currentEpoch) {
     displayResults(voteAccountInfo);
     
     // Show info message for stake accounts loading
-    showInfo('Loading delegated stake accounts...', true);
+    showInfo('Loading your authorized stake accounts...', true);
     const stakeAccounts = await getStakeAccountsForVoteAccount(voteAccountPubkey);
     
     console.log('=== Before createStakeTabs ===');
     console.log('Wallet connected:', walletConnected);
     console.log('Connected address:', connectedWalletAddress);
-    console.log('Raw stake accounts:', stakeAccounts.length);
+    console.log('Authorized stake accounts:', stakeAccounts.length);
     console.log('Current epoch (early):', currentEpoch);
     
     // IMPORTANT: Store the unsorted accounts first
@@ -193,13 +212,18 @@ async function handleVoteAccountSearch(voteAccountPubkey, currentEpoch) {
     
     hideInfo();
     
-    // Show completion message
-    if (stakeAccounts.length > 0) {
-        showInfo(`✅ Found vote account with ${stakeAccounts.length} delegated stake account(s)`);
-        setTimeout(() => hideInfo(), 3000); // auto hide after 3 seconds
+    // Show completion message with more descriptive text
+    if (walletConnected) {
+        if (stakeAccounts.length > 0) {
+            showInfo(`✅ Found vote account with ${stakeAccounts.length} stake account(s) you have authority over`);
+            setTimeout(() => hideInfo(), 4000);
+        } else {
+            showInfo(`✅ Found vote account (no stake accounts found that you have authority over)`);
+            setTimeout(() => hideInfo(), 4000);
+        }
     } else {
-        showInfo(`✅ Found vote account (no delegated stake accounts)`);
-        setTimeout(() => hideInfo(), 3000);
+        showInfo(`✅ Found vote account. Connect your wallet to see stake accounts you have authority over.`);
+        setTimeout(() => hideInfo(), 4000);
     }
 }
 
@@ -483,9 +507,11 @@ async function getStakeAccountsForVoteAccount(voteAccountPubkey) {
             ],
         });
         
-        console.log('Found', accounts.length, 'stake accounts');
+        console.log('Found', accounts.length, 'total stake accounts delegated to vote account');
         
         const stakeAccounts = [];
+        let filteredOutCount = 0;
+        
         for (const account of accounts) {
             try {
                 // parse stake account data
@@ -498,12 +524,32 @@ async function getStakeAccountsForVoteAccount(voteAccountPubkey) {
                         stakeData.stake.delegation && 
                         stakeData.stake.delegation.voter === voteAccountPubkey.toString()) {
                         
-                        stakeAccounts.push({
-                            pubkey: account.pubkey.toString(),
-                            lamports: account.account.lamports,
-                            data: stakeData,
-                            accountInfo: stakeAccount.value
-                        });
+                        // Check if wallet is connected and user has authority
+                        let hasAuthority = false;
+                        
+                        if (walletConnected && connectedWalletAddress) {
+                            const stakeAuthority = stakeData.meta?.authorized?.staker || '';
+                            const withdrawAuthority = stakeData.meta?.authorized?.withdrawer || '';
+                            
+                            hasAuthority = (stakeAuthority === connectedWalletAddress || 
+                                          withdrawAuthority === connectedWalletAddress);
+                            
+                            console.log(`Stake account ${account.pubkey.toString()}: stake authority=${stakeAuthority}, withdraw authority=${withdrawAuthority}, user has authority=${hasAuthority}`);
+                        } else {
+                            console.log('Wallet not connected, excluding all stake accounts');
+                        }
+                        
+                        // Only include stake accounts where user has authority
+                        if (hasAuthority) {
+                            stakeAccounts.push({
+                                pubkey: account.pubkey.toString(),
+                                lamports: account.account.lamports,
+                                data: stakeData,
+                                accountInfo: stakeAccount.value
+                            });
+                        } else {
+                            filteredOutCount++;
+                        }
                     }
                 }
             } catch (error) {
@@ -511,7 +557,15 @@ async function getStakeAccountsForVoteAccount(voteAccountPubkey) {
             }
         }
         
-        console.log('Processed stake accounts:', stakeAccounts);
+        console.log(`Filtered results: ${stakeAccounts.length} stake accounts with user authority, ${filteredOutCount} filtered out`);
+        
+        // Add informative message about filtering
+        if (walletConnected && filteredOutCount > 0) {
+            console.log(`Note: ${filteredOutCount} stake account(s) were filtered out because you don't have stake or withdraw authority`);
+        } else if (!walletConnected && accounts.length > 0) {
+            console.log('Note: Connect your wallet to see stake accounts you have authority over');
+        }
+        
         return stakeAccounts;
         
     } catch (error) {
