@@ -165,22 +165,26 @@
 
                     <div class="search-section">
                         <div class="input-group">
-                            <label for="voteAccount">Vote Account Public Key:</label>
+                            <label for="voteAccount">Account Address (Vote or Stake):</label>
                             <div class="input-wrapper">
                                 <i class="fas fa-key"></i>
                                 <input 
                                     type="text" 
                                     id="voteAccount" 
-                                    placeholder="Enter vote account public key..."
+                                    placeholder="Enter vote account or stake account address..."
                                     class="vote-input"
                                     autocomplete="off"
                                 >
                             </div>
+                            <small class="input-help">
+                                <i class="fas fa-info-circle"></i>
+                                You can enter either a vote account address or a stake account address. The system will automatically detect the type and show relevant information.
+                            </small>
                         </div>
 
                         <button id="searchBtn" class="search-btn">
                             <i class="fas fa-search"></i>
-                            Search Vote Account
+                            Search Account
                         </button>
                     </div>
 

@@ -82,10 +82,10 @@ function onWalletUIUpdated(address) {
 
 // Handle search button click
 async function handleSearch() {
-    const voteAccountStr = voteAccountInput.value.trim();
+    const accountStr = voteAccountInput.value.trim();
     
-    if (!voteAccountStr) {
-        showError('Please enter a vote account public key');
+    if (!accountStr) {
+        showError('Please enter an account address (vote or stake)');
         return;
     }
 
@@ -94,8 +94,8 @@ async function handleSearch() {
     removeWithdrawAuthorityMatch();
 
     try {
-        // validate and create PublicKey
-        const voteAccountPubkey = new solanaWeb3.PublicKey(voteAccountStr);
+        // Validate and create PublicKey
+        const accountPubkey = new solanaWeb3.PublicKey(accountStr);
         
         // GET CURRENT EPOCH EARLY - before any other queries
         showInfo('Getting current epoch information...', true);
@@ -110,39 +110,18 @@ async function handleSearch() {
         window.currentEpochCache = currentEpoch;
         console.log('💾 Cached epoch globally:', window.currentEpochCache);
         
-        // show info message for vote account loading
-        showInfo('Loading vote account information...', true);
+        // Detect account type by checking the owner/program
+        showInfo('Detecting account type...', true);
+        const accountType = await detectAccountType(accountPubkey);
         
-        const voteAccountInfo = await getVoteAccountInfoWithWeb3(voteAccountPubkey);
-        displayResults(voteAccountInfo);
-        
-        // show info message for stake accounts loading
-        showInfo('Loading delegated stake accounts...', true);
-        const stakeAccounts = await getStakeAccountsForVoteAccount(voteAccountPubkey);
-        
-        console.log('=== Before createStakeTabs ===');
-        console.log('Wallet connected:', walletConnected);
-        console.log('Connected address:', connectedWalletAddress);
-        console.log('Raw stake accounts:', stakeAccounts.length);
-        console.log('Current epoch (early):', currentEpoch);
-        
-        // IMPORTANT: Store the unsorted accounts first
-        currentStakeAccounts = stakeAccounts;
-        
-        // create stake tabs with current epoch info - PASS THE EPOCH!
-        await createStakeTabs(stakeAccounts, currentEpoch);
-        
-        // check withdraw authority match after displaying results
-        if (walletConnected) {
-            setTimeout(() => checkWithdrawAuthorityMatch(), 100);
-        }
-        
-        hideInfo();
-        
-        // show completion message
-        if (stakeAccounts.length > 0) {
-            showInfo(`✅ Found ${stakeAccounts.length} delegated stake account(s)`);
-            setTimeout(() => hideInfo(), 3000); // auto hide after 3 seconds
+        if (accountType === 'vote') {
+            // Handle as vote account (existing logic)
+            await handleVoteAccountSearch(accountPubkey, currentEpoch);
+        } else if (accountType === 'stake') {
+            // Handle as stake account (new logic)
+            await handleStakeAccountSearch(accountPubkey, currentEpoch);
+        } else {
+            throw new Error(`Invalid account type. This account is not a vote account or stake account (Owner: ${accountType})`);
         }
         
     } catch (error) {
@@ -150,10 +129,113 @@ async function handleSearch() {
         if (error.message.includes('Invalid public key input')) {
             showError('Invalid public key format');
         } else {
-            showError(`Error fetching vote account info: ${error.message}`);
+            showError(`Error fetching account info: ${error.message}`);
         }
         console.error('Error:', error);
     }
+}
+
+// Detect whether the account is a vote account or stake account
+async function detectAccountType(accountPubkey) {
+    try {
+        const accountInfo = await connection.getAccountInfo(accountPubkey);
+        
+        if (!accountInfo) {
+            throw new Error('Account not found');
+        }
+
+        const voteProgram = 'Vote111111111111111111111111111111111111111';
+        const stakeProgram = 'Stake11111111111111111111111111111111111111';
+        
+        const owner = accountInfo.owner.toString();
+        
+        if (owner === voteProgram) {
+            return 'vote';
+        } else if (owner === stakeProgram) {
+            return 'stake';
+        } else {
+            return owner; // Return the actual owner for error message
+        }
+    } catch (error) {
+        console.error('Failed to detect account type:', error);
+        throw error;
+    }
+}
+
+// Handle vote account search (existing logic extracted)
+async function handleVoteAccountSearch(voteAccountPubkey, currentEpoch) {
+    // Show info message for vote account loading
+    showInfo('Loading vote account information...', true);
+    
+    const voteAccountInfo = await getVoteAccountInfoWithWeb3(voteAccountPubkey);
+    displayResults(voteAccountInfo);
+    
+    // Show info message for stake accounts loading
+    showInfo('Loading delegated stake accounts...', true);
+    const stakeAccounts = await getStakeAccountsForVoteAccount(voteAccountPubkey);
+    
+    console.log('=== Before createStakeTabs ===');
+    console.log('Wallet connected:', walletConnected);
+    console.log('Connected address:', connectedWalletAddress);
+    console.log('Raw stake accounts:', stakeAccounts.length);
+    console.log('Current epoch (early):', currentEpoch);
+    
+    // IMPORTANT: Store the unsorted accounts first
+    currentStakeAccounts = stakeAccounts;
+    
+    // Create stake tabs with current epoch info - PASS THE EPOCH!
+    await createStakeTabs(stakeAccounts, currentEpoch);
+    
+    // Check withdraw authority match after displaying results
+    if (walletConnected) {
+        setTimeout(() => checkWithdrawAuthorityMatch(), 100);
+    }
+    
+    hideInfo();
+    
+    // Show completion message
+    if (stakeAccounts.length > 0) {
+        showInfo(`✅ Found vote account with ${stakeAccounts.length} delegated stake account(s)`);
+        setTimeout(() => hideInfo(), 3000); // auto hide after 3 seconds
+    } else {
+        showInfo(`✅ Found vote account (no delegated stake accounts)`);
+        setTimeout(() => hideInfo(), 3000);
+    }
+}
+
+// Handle stake account search (new logic)
+async function handleStakeAccountSearch(stakeAccountPubkey, currentEpoch) {
+    showInfo('Loading stake account information...', true);
+    
+    // Get stake account information
+    const stakeAccountInfo = await getStakeAccountInfo(stakeAccountPubkey);
+    
+    // Hide vote account info and display stake account directly
+    hideVoteInfo();
+    
+    // Create a single stake tab for this specific stake account
+    const stakeAccounts = [stakeAccountInfo];
+    currentStakeAccounts = stakeAccounts;
+    
+    // Create stake tabs
+    await createStakeTabs(stakeAccounts, currentEpoch);
+    
+    // Show results section and activate first stake tab
+    showResults();
+    setTimeout(() => {
+        switchTab('stake-0');
+    }, 100);
+    
+    // Check authorities if wallet is connected
+    if (walletConnected) {
+        setTimeout(() => {
+            checkStakeAuthorities('stake-0');
+        }, 200);
+    }
+    
+    hideInfo();
+    showInfo(`✅ Found stake account information`);
+    setTimeout(() => hideInfo(), 3000);
 }
 
 // Get vote account information using Solana Web3.js
@@ -240,6 +322,8 @@ function hideResults() {
     resultsSection.classList.add('hidden');
     // Disable withdraw button when hiding results
     updateWithdrawButtonState(false);
+    // Show vote info section in case it was hidden for stake-only search
+    showVoteInfo();
 }
 
 // Check if connected wallet address matches withdraw authority
@@ -2128,6 +2212,68 @@ async function executeWithdrawAuthorityUpdate(newAuthority) {
     } catch (error) {
         console.error('Update withdraw authority failed:', error);
         throw error;
+    }
+}
+
+// Get information for a specific stake account
+async function getStakeAccountInfo(stakeAccountPubkey) {
+    try {
+        console.log('Getting stake account info for:', stakeAccountPubkey.toString());
+        
+        // Get parsed account info
+        const accountInfo = await connection.getParsedAccountInfo(stakeAccountPubkey);
+        
+        if (!accountInfo.value) {
+            throw new Error('Stake account not found');
+        }
+
+        // Verify this is actually a stake account
+        if (accountInfo.value.data.program !== 'stake') {
+            throw new Error('This account is not a stake account');
+        }
+
+        const stakeData = accountInfo.value.data.parsed.info;
+        
+        // Structure the data similar to getStakeAccountsForVoteAccount format
+        const stakeAccountInfo = {
+            pubkey: stakeAccountPubkey.toString(),
+            lamports: accountInfo.value.lamports,
+            data: stakeData,
+            accountInfo: accountInfo.value
+        };
+        
+        console.log('Stake account info:', stakeAccountInfo);
+        return stakeAccountInfo;
+        
+    } catch (error) {
+        console.error('Failed to get stake account info:', error);
+        throw error;
+    }
+}
+
+// Hide vote account info section
+function hideVoteInfo() {
+    const voteTab = document.querySelector('[onclick="switchTab(\'vote-info\')"]');
+    const voteInfo = document.getElementById('vote-info');
+    
+    if (voteTab) {
+        voteTab.style.display = 'none';
+    }
+    if (voteInfo) {
+        voteInfo.style.display = 'none';
+    }
+}
+
+// Show vote account info section (for when switching back to vote account search)
+function showVoteInfo() {
+    const voteTab = document.querySelector('[onclick="switchTab(\'vote-info\')"]');
+    const voteInfo = document.getElementById('vote-info');
+    
+    if (voteTab) {
+        voteTab.style.display = 'block';
+    }
+    if (voteInfo) {
+        voteInfo.style.display = 'block';
     }
 }
 
