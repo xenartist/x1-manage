@@ -1,6 +1,6 @@
 // Global App State
 let connection = null;
-let currentRpcEndpoint = 'https://rpc.testnet.x1.xyz';
+let currentRpcEndpoint = 'https://rpc.mainnet.x1.xyz';
 let wallet = null;
 let walletConnected = false;
 let connectedWalletAddress = null;
@@ -799,6 +799,18 @@ function updateRpcConnection(rpcUrl) {
             resultsSection.classList.add('hidden');
         }
         
+        // fetch wallet balance again（if wallet is connected）
+        if (walletConnected && connectedWalletAddress) {
+            console.log('🔄 Refreshing wallet balance after RPC change...');
+            fetchWalletBalance(connectedWalletAddress).then(balance => {
+                walletBalance = balance;
+                updateWalletBalanceDisplay(balance);
+                console.log('✅ Wallet balance refreshed:', balance, 'XNT');
+            }).catch(error => {
+                console.error('Failed to refresh wallet balance:', error);
+            });
+        }
+        
     } catch (error) {
         console.error('Failed to update RPC connection:', error);
         showError(`Failed to connect to RPC endpoint: ${error.message}`);
@@ -807,7 +819,7 @@ function updateRpcConnection(rpcUrl) {
 
 // Initialize RPC selector when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    const defaultRpc = 'https://rpc.testnet.x1.xyz';
+    const defaultRpc = 'https://rpc.mainnet.x1.xyz';
     updateRpcConnection(defaultRpc);
     
     initializeRpcSelector();

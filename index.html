@@ -34,15 +34,20 @@
                     <div class="rpc-dropdown">
                         <div class="rpc-selected" id="rpcSelected">
                             <i class="fas fa-server"></i>
-                            <span id="selectedRpcText">X1 Testnet (Default)</span>
+                            <span id="selectedRpcText">X1 Mainnet (Default)</span>
                             <i class="fas fa-chevron-down"></i>
                         </div>
                         
                         <div class="rpc-options hidden" id="rpcOptions">
                             <!-- rpc options -->
+                            <div class="rpc-option" data-value="https://rpc.mainnet.x1.xyz">
+                                <i class="fas fa-server"></i>
+                                X1 Mainnet (Default)
+                            </div>
+                            
                             <div class="rpc-option" data-value="https://rpc.testnet.x1.xyz">
                                 <i class="fas fa-server"></i>
-                                X1 Testnet (Default)
+                                X1 Testnet
                             </div>
                             
                             <!-- Custom RPC option - display based on state -->
