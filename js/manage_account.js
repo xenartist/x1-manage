@@ -1907,7 +1907,7 @@ async function executeWithdraw() {
                 console.log('Transaction confirmed:', confirmation);
 
                 // Show success message with full X1 explorer URL
-                const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                const explorerUrl = getExplorerUrl(signature);
                 showSuccess(`✅ Withdrawal successful! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
         
                 // Hide modal
@@ -1939,7 +1939,7 @@ async function executeWithdraw() {
                         }
                     }, 5000);
                     
-                    const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                    const explorerUrl = getExplorerUrl(signature);
                     showWarning(`⚠️ Transaction confirmation timeout. Please check the transaction status: <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
                     hideWithdrawModal();
                 } else {
@@ -2060,7 +2060,7 @@ async function executeStakeWithdraw(stakeAccountAddress) {
         // Wait for confirmation
         await connection.confirmTransaction(signature, 'confirmed');
         
-        const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+        const explorerUrl = getExplorerUrl(signature);
         showSuccess(`✅ Stake withdrawal successful! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
         
     } catch (error) {
@@ -2136,7 +2136,7 @@ async function executeStakeDelegate(stakeAccountAddress) {
         // Wait for confirmation
         await connection.confirmTransaction(signature, 'confirmed');
         
-        const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+        const explorerUrl = getExplorerUrl(signature);
         showSuccess(`✅ Stake delegated successfully! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
         
     } catch (error) {
@@ -2201,7 +2201,7 @@ async function executeStakeDeactivate(stakeAccountAddress) {
         // Wait for confirmation
         await connection.confirmTransaction(signature, 'confirmed');
         
-        const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+        const explorerUrl = getExplorerUrl(signature);
         showSuccess(`✅ Stake account deactivated successfully! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
     } catch (error) {
         console.error('Failed to deactivate stake account:', error);
@@ -2274,7 +2274,7 @@ async function executeWithdrawAuthorityUpdate(newAuthority) {
         // immediately recheck withdraw authority match with current connected wallet
         checkWithdrawAuthorityMatch();
         
-        const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+        const explorerUrl = getExplorerUrl(signature);
         showSuccess(`✅ Withdraw authority updated successfully! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
         
     } catch (error) {
@@ -2691,7 +2691,7 @@ async function executeStakeAuthorityUpdate(stakeAccountAddress, newAuthority, au
             }, 100);
         }
         
-        const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+        const explorerUrl = getExplorerUrl(signature);
         showSuccess(`✅ ${authorityTitle.charAt(0).toUpperCase() + authorityTitle.slice(1)} updated successfully! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
         
     } catch (error) {

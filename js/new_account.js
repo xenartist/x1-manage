@@ -1564,7 +1564,7 @@ async function createVoteAccount() {
                 updateVoteAccountsDisplay();
 
                 // Success
-                const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                const explorerUrl = getExplorerUrl(signature);
                 showSuccess(`✅ Vote account created successfully! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
         
                 // Hide modal
@@ -1582,16 +1582,16 @@ async function createVoteAccount() {
                             }
                             updateVoteAccountsDisplay();
                             
-                            const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                            const explorerUrl = getExplorerUrl(signature);
                             showWarning(`⚠️ Transaction confirmation timeout, but vote account appears to have been created. <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
                             hideCreateVoteAccountModal();
                         } else {
-                            const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                            const explorerUrl = getExplorerUrl(signature);
                             showWarning(`⚠️ Transaction confirmation timeout. Please check the transaction status: <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
                             hideCreateVoteAccountModal();
                         }
                     } catch (accountCheckError) {
-                        const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                        const explorerUrl = getExplorerUrl(signature);
                         showWarning(`⚠️ Transaction confirmation timeout. Please check the transaction status: <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
                         hideCreateVoteAccountModal();
                     }
@@ -2355,7 +2355,7 @@ async function executeDelegate() {
                     updateStakeAccountsDisplay();
                 }
 
-                const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                const explorerUrl = getExplorerUrl(signature);
                 showSuccess(`✅ Stake delegated successfully! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
 
                 // Close modal
@@ -2363,7 +2363,7 @@ async function executeDelegate() {
                 
             } catch (confirmationError) {
                 if (confirmationError.message.includes('timeout')) {
-                    const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                    const explorerUrl = getExplorerUrl(signature);
                     showWarning(`⚠️ Transaction confirmation timeout. Please check transaction status: <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
                     hideDelegateModal();
                 } else {
@@ -2651,7 +2651,7 @@ async function createStakeAccount() {
                 updateStakeAccountsDisplay();
 
                 // Success
-                const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                const explorerUrl = getExplorerUrl(signature);
                 showSuccess(`✅ Stake account created successfully! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
         
                 // Hide modal
@@ -2667,16 +2667,16 @@ async function createStakeAccount() {
                             currentValidator.stakeAccounts[stakeIndex].initialized = true;
                             updateStakeAccountsDisplay();
                             
-                            const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                            const explorerUrl = getExplorerUrl(signature);
                             showWarning(`⚠️ Transaction confirmation timeout, but stake account appears to have been created. <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
                             hideCreateStakeAccountModal();
                         } else {
-                            const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                            const explorerUrl = getExplorerUrl(signature);
                             showWarning(`⚠️ Transaction confirmation timeout. Please check the transaction status: <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
                             hideCreateStakeAccountModal();
                         }
                     } catch (accountCheckError) {
-                        const explorerUrl = `https://explorer.x1.xyz/tx/${signature}`;
+                        const explorerUrl = getExplorerUrl(signature);
                         showWarning(`⚠️ Transaction confirmation timeout. Please check the transaction status: <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
                         hideCreateStakeAccountModal();
                     }

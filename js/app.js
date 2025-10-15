@@ -778,6 +778,9 @@ function updateRpcConnection(rpcUrl) {
     try {
         new URL(rpcUrl);
         
+        // Update currentRpcEndpoint
+        currentRpcEndpoint = rpcUrl;
+        
         if (window.connection) {
             window.connection = new solanaWeb3.Connection(rpcUrl, 'confirmed');
             console.log('✅ RPC connection updated to:', rpcUrl);
@@ -815,6 +818,31 @@ function updateRpcConnection(rpcUrl) {
         console.error('Failed to update RPC connection:', error);
         showError(`Failed to connect to RPC endpoint: ${error.message}`);
     }
+}
+
+// Get explorer URL based on current RPC endpoint
+function getExplorerUrl(txSignature = '') {
+    let explorerBase;
+    
+    // Check if current RPC is testnet
+    if (currentRpcEndpoint.includes('testnet')) {
+        explorerBase = 'https://explorer.testnet.x1.xyz';
+    } 
+    // Check if current RPC is mainnet
+    else if (currentRpcEndpoint.includes('mainnet')) {
+        explorerBase = 'https://explorer.mainnet.x1.xyz';
+    } 
+    // Default to mainnet for custom RPC
+    else {
+        explorerBase = 'https://explorer.mainnet.x1.xyz';
+    }
+    
+    // Return full URL with transaction signature if provided
+    if (txSignature) {
+        return `${explorerBase}/tx/${txSignature}`;
+    }
+    
+    return explorerBase;
 }
 
 // Initialize RPC selector when DOM is loaded
