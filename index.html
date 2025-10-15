@@ -6,7 +6,7 @@
     <title>X1 Validator Management</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/base.css?v=20251015">
-    <link rel="stylesheet" href="css/manage_account.css?v=20250911">
+    <link rel="stylesheet" href="css/manage_account.css?v=2025101501">
     <link rel="stylesheet" href="css/new_account.css?v=2025091102">
     <!-- Add Solana Web3.js SDK -->
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
@@ -257,7 +257,7 @@
                                         </div>
                                     </div>
 
-                                    <div class="info-card">
+                                    <div class="info-card commission-card">
                                         <div class="info-header">
                                             <i class="fas fa-percentage"></i>
                                             <h3>Commission</h3>
@@ -560,6 +560,54 @@
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="hideWithdrawModal()">Cancel</button>
                 <button class="btn-confirm" onclick="executeWithdraw()">Withdraw</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Update Commission Modal -->
+    <div id="updateCommissionModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-percentage"></i> Update Vote Account Commission</h3>
+                <button class="modal-close" onclick="hideUpdateCommissionModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="currentCommission">Current Commission:</label>
+                    <input type="text" id="currentCommission" class="readonly-input" readonly>
+                </div>
+                
+                <div class="form-group">
+                    <label for="newCommission">New Commission (%):</label>
+                    <input type="number" id="newCommission" min="0" max="100" step="0.01" placeholder="Enter new commission (0-100)" autocomplete="off">
+                    <small>Commission must be between 0% and 100%</small>
+                </div>
+                
+                <div class="info-section">
+                    <div class="info-card">
+                        <h4><i class="fas fa-info-circle"></i> Commission Information</h4>
+                        <p>Commission is the percentage of rewards that the validator keeps. The remaining rewards are distributed to delegators.</p>
+                        <ul>
+                            <li>You need withdraw authority to update commission</li>
+                            <li>New commission will apply to future rewards</li>
+                            <li>A small transaction fee is required</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="warning-note">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div>
+                        <strong>Important:</strong> Changing commission may affect your delegators. 
+                        Consider communicating the change to your community.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="hideUpdateCommissionModal()">Cancel</button>
+                <button class="btn-confirm" onclick="executeUpdateCommission()">Update Commission</button>
             </div>
         </div>
     </div>
@@ -1200,7 +1248,7 @@
 
     <!-- Scripts -->
     <script src="js/app.js?v=20251015"></script>
-    <script src="js/manage_account.js?v=20251015"></script>
+    <script src="js/manage_account.js?v=2025101501"></script>
     <script src="js/new_account.js?v=20251015"></script>
 </body>
 </html>

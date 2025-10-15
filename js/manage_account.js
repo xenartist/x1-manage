@@ -79,6 +79,7 @@ function onWalletConnected() {
 function onWalletDisconnected() {
     console.log('Manage Account: Wallet disconnected');
     removeWithdrawAuthorityMatch();
+    removeCommissionUpdateButton();
 }
 
 function onWalletUIUpdated(address) {
@@ -346,6 +347,8 @@ function hideResults() {
     resultsSection.classList.add('hidden');
     // Disable withdraw button when hiding results
     updateWithdrawButtonState(false);
+    // Remove commission update button when hiding results
+    removeCommissionUpdateButton();
     // Show vote info section in case it was hidden for stake-only search
     showVoteInfo();
     
@@ -375,6 +378,7 @@ function clearStakeTabs() {
 function checkWithdrawAuthorityMatch() {
     if (!walletConnected || !connectedWalletAddress) {
         updateWithdrawButtonState(false);
+        removeCommissionUpdateButton();
         return;
     }
     
@@ -383,12 +387,15 @@ function checkWithdrawAuthorityMatch() {
         if (withdrawAuthority === connectedWalletAddress) {
             showWithdrawAuthorityMatch(true);
             updateWithdrawButtonState(true);
+            showCommissionUpdateButton(true);
         } else {
             showWithdrawAuthorityMatch(false);
             updateWithdrawButtonState(false);
+            showCommissionUpdateButton(false);
         }
     } else {
         updateWithdrawButtonState(false);
+        removeCommissionUpdateButton();
     }
 }
 
@@ -506,6 +513,113 @@ function removeWithdrawAuthorityMatch() {
     
     // Disable withdraw button when removing authority match
     updateWithdrawButtonState(false);
+}
+
+// Show commission update button based on authority
+function showCommissionUpdateButton(hasAuthority) {
+    const commissionCard = commissionEl.closest('.info-card');
+    if (!commissionCard) return;
+    
+    // Remove existing button and indicator
+    const existingButton = commissionCard.querySelector('.update-commission-btn');
+    const existingIndicator = commissionCard.querySelector('.commission-authority-indicator');
+    const existingContainer = commissionCard.querySelector('.commission-value-container');
+    
+    if (existingButton) {
+        existingButton.remove();
+    }
+    if (existingIndicator) {
+        existingIndicator.remove();
+    }
+    if (existingContainer) {
+        existingContainer.remove();
+    }
+    
+    // Remove existing classes
+    commissionCard.classList.remove('authority-match', 'authority-no-match');
+    
+    const infoContent = commissionCard.querySelector('.info-content');
+    
+    if (hasAuthority) {
+        // Create a container for commission value and button
+        const valueContainer = document.createElement('div');
+        valueContainer.className = 'commission-value-container';
+        
+        // Move commission element into container (not clone, just move)
+        valueContainer.appendChild(commissionEl);
+        
+        // Create Update button
+        const updateButton = document.createElement('button');
+        updateButton.className = 'update-commission-btn';
+        updateButton.onclick = showUpdateCommissionModal;
+        updateButton.innerHTML = `
+            <i class="fas fa-edit"></i>
+            Update
+        `;
+        valueContainer.appendChild(updateButton);
+        
+        // Add container to info-content
+        infoContent.appendChild(valueContainer);
+        
+        // Add style class
+        commissionCard.classList.add('authority-match');
+        
+        // Add status indicator below
+        const indicator = document.createElement('div');
+        indicator.className = 'commission-authority-indicator';
+        indicator.innerHTML = `
+            <div class="match-status match-success">
+                <i class="fas fa-check-circle"></i>
+                <span>You have withdraw authority</span>
+            </div>
+        `;
+        infoContent.appendChild(indicator);
+        
+        console.log('Update commission button added');
+    } else {
+        commissionCard.classList.add('authority-no-match');
+        
+        // Add status indicator showing no authority
+        const indicator = document.createElement('div');
+        indicator.className = 'commission-authority-indicator';
+        indicator.innerHTML = `
+            <div class="match-status match-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>You don't have withdraw authority</span>
+            </div>
+        `;
+        
+        infoContent.appendChild(indicator);
+    }
+}
+
+// Remove commission update button
+function removeCommissionUpdateButton() {
+    const commissionCard = document.querySelector('.commission-card');
+    if (!commissionCard) return;
+    
+    const button = commissionCard.querySelector('.update-commission-btn');
+    const indicator = commissionCard.querySelector('.commission-authority-indicator');
+    const container = commissionCard.querySelector('.commission-value-container');
+    
+    if (container) {
+        // Move commission element back to info-content
+        const commissionInContainer = container.querySelector('#commission');
+        const infoContent = commissionCard.querySelector('.info-content');
+        if (commissionInContainer && infoContent) {
+            infoContent.appendChild(commissionInContainer);
+        }
+        container.remove();
+    }
+    
+    if (button) {
+        button.remove();
+    }
+    if (indicator) {
+        indicator.remove();
+    }
+    
+    commissionCard.classList.remove('authority-match', 'authority-no-match');
 }
 
 // Get all stake accounts delegated to a vote account
@@ -2697,6 +2811,180 @@ async function executeStakeAuthorityUpdate(stakeAccountAddress, newAuthority, au
     } catch (error) {
         console.error(`Update ${authorityTitle} failed:`, error);
         throw error;
+    }
+}
+
+// ===== Update Commission Functions =====
+
+// Show update commission modal
+function showUpdateCommissionModal() {
+    if (!walletConnected || !connectedWalletAddress) {
+        showError('Please connect your wallet first');
+        return;
+    }
+    
+    const withdrawAuthority = withdrawAuthorityEl.textContent;
+    if (withdrawAuthority !== connectedWalletAddress) {
+        showError('You do not have withdraw authority for this vote account');
+        return;
+    }
+    
+    // Get current commission value
+    const currentCommissionText = commissionEl.textContent;
+    const currentCommissionValue = currentCommissionText.replace('%', '').trim();
+    
+    // Populate modal
+    const currentCommissionInput = document.getElementById('currentCommission');
+    const newCommissionInput = document.getElementById('newCommission');
+    
+    if (currentCommissionInput) {
+        currentCommissionInput.value = currentCommissionText;
+    }
+    if (newCommissionInput) {
+        newCommissionInput.value = '';
+    }
+    
+    // Show modal
+    const modal = document.getElementById('updateCommissionModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        
+        // Focus on new commission input
+        setTimeout(() => {
+            if (newCommissionInput) {
+                newCommissionInput.focus();
+            }
+        }, 100);
+    }
+}
+
+// Hide update commission modal
+function hideUpdateCommissionModal() {
+    const modal = document.getElementById('updateCommissionModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+    
+    const newCommissionInput = document.getElementById('newCommission');
+    if (newCommissionInput) {
+        newCommissionInput.value = '';
+    }
+}
+
+// Execute update commission transaction
+async function executeUpdateCommission() {
+    if (!walletConnected || !wallet) {
+        showError('Wallet not connected');
+        return;
+    }
+    
+    const newCommissionInput = document.getElementById('newCommission');
+    const newCommission = parseFloat(newCommissionInput.value);
+    
+    // Validate commission value
+    if (isNaN(newCommission) || newCommission < 0 || newCommission > 100) {
+        showError('Commission must be between 0 and 100');
+        return;
+    }
+    
+    const withdrawAuthority = withdrawAuthorityEl.textContent;
+    if (withdrawAuthority !== connectedWalletAddress) {
+        showError('You do not have withdraw authority for this vote account');
+        return;
+    }
+    
+    hideUpdateCommissionModal();
+    
+    // Confirm the operation
+    if (!confirm(`Are you sure you want to update the commission to ${newCommission}%?\n\nThis will affect future rewards distribution.`)) {
+        return;
+    }
+    
+    showInfo('Creating update commission transaction...', true);
+    
+    try {
+        // Get current vote account
+        const voteAccountStr = voteAccountInput.value.trim();
+        const voteAccountPubkey = new solanaWeb3.PublicKey(voteAccountStr);
+        const withdrawAuthorityPubkey = new solanaWeb3.PublicKey(withdrawAuthority);
+        
+        // Get latest blockhash
+        const { blockhash } = await connection.getLatestBlockhash('finalized');
+        
+        // Create transaction
+        const transaction = new solanaWeb3.Transaction({
+            recentBlockhash: blockhash,
+            feePayer: withdrawAuthorityPubkey,
+        });
+        
+        // Vote program ID
+        const VOTE_PROGRAM_ID = new solanaWeb3.PublicKey('Vote111111111111111111111111111111111111111');
+        
+        // UpdateCommission instruction data
+        // Instruction type for UpdateCommission is 5 (per Solana vote program enum)
+        const instructionData = new Uint8Array(5);
+        
+        // Write instruction type (5 = UpdateCommission) as 4-byte little endian
+        const instructionType = 5;
+        instructionData[0] = instructionType & 0xff;
+        instructionData[1] = (instructionType >> 8) & 0xff;
+        instructionData[2] = (instructionType >> 16) & 0xff;
+        instructionData[3] = (instructionType >> 24) & 0xff;
+        
+        // Write commission as u8 (1 byte) - integer 0-100
+        instructionData[4] = Math.round(newCommission);
+        
+        const updateCommissionInstruction = new solanaWeb3.TransactionInstruction({
+            keys: [
+                { pubkey: voteAccountPubkey, isSigner: false, isWritable: true },
+                { pubkey: withdrawAuthorityPubkey, isSigner: true, isWritable: false },
+            ],
+            programId: VOTE_PROGRAM_ID,
+            data: instructionData,
+        });
+        
+        transaction.add(updateCommissionInstruction);
+        
+        console.log('UpdateCommission transaction created:', {
+            voteAccount: voteAccountPubkey.toString(),
+            withdrawAuthority: withdrawAuthorityPubkey.toString(),
+            newCommission: newCommission,
+            instructionType: instructionType
+        });
+        
+        // Sign and send transaction
+        const signedTransaction = await wallet.signTransaction(transaction);
+        const signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+            skipPreflight: false,
+            preflightCommitment: 'confirmed'
+        });
+        
+        console.log('Transaction sent:', signature);
+        showInfo('Transaction sent! Waiting for confirmation...', true);
+        
+        // Wait for confirmation
+        await connection.confirmTransaction(signature, 'confirmed');
+        
+        // Update UI display
+        commissionEl.textContent = `${newCommission}%`;
+        
+        const explorerUrl = getExplorerUrl(signature);
+        showSuccess(`✅ Commission updated to ${newCommission}% successfully! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+        
+    } catch (error) {
+        console.error('Update commission failed:', error);
+        
+        let errorMessage = 'Failed to update commission: ';
+        
+        if (error.message && error.message.includes('rejected')) {
+            errorMessage = 'Transaction was rejected by user';
+        } else if (error.message && error.message.includes('insufficient funds')) {
+            errorMessage = 'Insufficient funds for transaction';
+        } else {
+            errorMessage += error.message || 'Unknown error occurred';
+        }
+        
+        showError(errorMessage);
     }
 }
 

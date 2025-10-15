@@ -257,6 +257,7 @@
     gap: 12px;
     width: 100%;
     display: flex;
+    flex-wrap: wrap;
 }
 
 /* Ensure balance text takes flexible width in balance card */
@@ -265,6 +266,44 @@
     margin-right: 0;
     text-align: left;
     min-width: 0; /* Allow shrinking */
+}
+
+/* Commission card with authority - vertical layout */
+.commission-card.authority-match .info-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+}
+
+/* Container for commission value and update button */
+.commission-value-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 12px;
+}
+
+/* Commission value takes available space */
+.commission-value-container .number {
+    flex: 1;
+    margin-right: 0;
+    text-align: left;
+    min-width: 0;
+}
+
+/* Update button stays on the right */
+.commission-value-container .update-commission-btn {
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+/* Commission authority indicator - appears below value and button */
+.commission-card .commission-authority-indicator {
+    width: 100%;
+    margin-top: 12px;
 }
 
 /* Fixed width for withdraw button */
@@ -433,7 +472,7 @@
 }
 
 /* Update Authority Buttons */
-.update-authority-btn, .update-stake-authority-btn, .update-stake-withdraw-authority-btn {
+.update-authority-btn, .update-stake-authority-btn, .update-stake-withdraw-authority-btn, .update-commission-btn {
     flex: 0 0 auto;
     width: 100px;
     height: 32px;
@@ -452,18 +491,18 @@
     box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
 }
 
-.update-authority-btn:hover, .update-stake-authority-btn:hover, .update-stake-withdraw-authority-btn:hover {
+.update-authority-btn:hover, .update-stake-authority-btn:hover, .update-stake-withdraw-authority-btn:hover, .update-commission-btn:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
 }
 
-.update-authority-btn:active, .update-stake-authority-btn:active, .update-stake-withdraw-authority-btn:active {
+.update-authority-btn:active, .update-stake-authority-btn:active, .update-stake-withdraw-authority-btn:active, .update-commission-btn:active {
     transform: translateY(0);
     box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
 }
 
 /* Authority Match Indicators */
-.authority-match-indicator {
+.authority-match-indicator, .commission-authority-indicator {
     margin-top: 12px;
 }
 
@@ -803,7 +842,8 @@
     
     .update-authority-btn,
     .update-stake-authority-btn,
-    .update-stake-withdraw-authority-btn {
+    .update-stake-withdraw-authority-btn,
+    .update-commission-btn {
         width: 100%;
     }
 }
