@@ -1453,11 +1453,19 @@ function showDelegateStakeModal(stakeAccountAddress, availableBalance) {
     document.body.appendChild(modal);
     modal.classList.remove('hidden');
     
-    // 预填当前查询的 vote account
-    const currentVoteAccount = voteAccountInput.value.trim();
-    if (currentVoteAccount) {
-        document.getElementById('delegateVoteAccount').value = currentVoteAccount;
+    // fill current vote account - but only when vote account information is visible
+    // if searching stake account directly, vote-info tab will be hidden, so do not fill automatically
+    const voteTab = document.querySelector('[onclick="switchTab(\'vote-info\')"]');
+    const isVoteAccountVisible = voteTab && voteTab.style.display !== 'none';
+    
+    if (isVoteAccountVisible) {
+        // only fill when vote account list is visible after searching vote account
+        const currentVoteAccount = voteAccountInput.value.trim();
+        if (currentVoteAccount) {
+            document.getElementById('delegateVoteAccount').value = currentVoteAccount;
+        }
     }
+    // if searching stake account directly, keep input box empty
     
     setTimeout(() => {
         document.getElementById('delegateVoteAccount').focus();
