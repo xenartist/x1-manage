@@ -1055,21 +1055,34 @@ async function createStakeTab(stakeAccount, index, currentEpoch = null) {
             </div>
 
             <!-- Account Balance -->
-            <div class="info-card${stakeStatus.text === 'Inactive' && hasWithdrawAuthority ? ' balance-card' : ''}">
+            <div class="info-card${hasWithdrawAuthority ? ' balance-card' : ''}">
                 <div class="info-header">
                     <i class="fas fa-wallet"></i>
                     <h3>Account Balance</h3>
                 </div>
                 <div class="info-content">
                     <span class="balance">${totalBalance.toFixed(6)} XNT</span>
-                    ${stakeStatus.text === 'Inactive' && hasWithdrawAuthority && totalBalance > 0 ? 
-                        `<button class="withdraw-stake-btn" onclick="showStakeWithdrawModal('${stakePubkey}', ${totalBalance.toFixed(6)})">
-                            <i class="fas fa-arrow-right"></i>
-                            Withdraw
-                        </button>` : 
+                    ${hasWithdrawAuthority && totalBalance > 0 ? 
+                        (stakeStatus.text === 'Inactive' || stakeStatus.text === 'Not Delegated' ?
+                            `<button class="withdraw-stake-btn" onclick="showStakeWithdrawModal('${stakePubkey}', ${totalBalance.toFixed(6)})">
+                                <i class="fas fa-arrow-right"></i>
+                                Withdraw
+                            </button>` :
+                            `<button class="withdraw-stake-btn" disabled title="Only inactive or undelegated stake can be withdrawn. Deactivate the stake first.">
+                                <i class="fas fa-arrow-right"></i>
+                                Withdraw
+                            </button>`
+                        ) : 
                         ''
                     }
                 </div>
+                ${hasWithdrawAuthority && totalBalance > 0 && stakeStatus.text !== 'Inactive' && stakeStatus.text !== 'Not Delegated' ?
+                    `<div class="withdraw-hint" style="margin-top: 8px; padding: 8px; background: rgba(255, 152, 0, 0.1); border-radius: 6px; font-size: 0.85rem; color: #ef6c00; border-left: 3px solid #ff9800;">
+                        <i class="fas fa-info-circle"></i>
+                        <span>Withdraw available after stake is deactivated and inactive</span>
+                    </div>` : 
+                    ''
+                }
             </div>
 
             <!-- Delegated Stake -->
