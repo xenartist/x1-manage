@@ -112,13 +112,61 @@
     border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+/* Results Header with Refresh Button */
+.results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+}
+
 .results-section h3 {
     color: #333;
     font-size: 1.5rem;
-    margin-bottom: 1.5rem;
+    margin: 0;
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+/* Refresh Button */
+.refresh-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.25);
+}
+
+.refresh-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.35);
+}
+
+.refresh-btn:active {
+    transform: translateY(0);
+}
+
+.refresh-btn i {
+    font-size: 12px;
+    transition: transform 0.3s ease;
+}
+
+.refresh-btn.refreshing i {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 /* Tab Navigation */
@@ -799,6 +847,582 @@
     color: rgba(255, 255, 255, 0.9);
 }
 
+/* ========================================
+   Merge Stake Section Styles
+   ======================================== */
+
+/* Container */
+.merge-stake-container {
+    padding: 1rem 0;
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+/* Wallet Notice */
+.wallet-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 24px;
+    background: linear-gradient(135deg, rgba(255, 152, 0, 0.1) 0%, rgba(255, 152, 0, 0.05) 100%);
+    border: 1px solid rgba(255, 152, 0, 0.3);
+    border-radius: 12px;
+}
+
+.wallet-notice .notice-icon {
+    flex: 0 0 auto;
+    width: 48px;
+    height: 48px;
+    background: rgba(255, 152, 0, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wallet-notice .notice-icon i {
+    font-size: 20px;
+    color: #ef6c00;
+}
+
+.wallet-notice .notice-content h4 {
+    margin: 0 0 8px 0;
+    color: #ef6c00;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.wallet-notice .notice-content p {
+    margin: 0;
+    color: #666;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+/* Merge Stake Content */
+.merge-stake-content {
+    animation: fadeIn 0.3s ease;
+}
+
+/* Info Card */
+.merge-info-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    background: rgba(102, 126, 234, 0.08);
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    border-radius: 10px;
+    margin-bottom: 24px;
+}
+
+.merge-info-card .info-icon {
+    flex: 0 0 auto;
+    color: #667eea;
+    font-size: 18px;
+}
+
+.merge-info-card .info-text p {
+    margin: 0;
+    color: #555;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+/* No Accounts Notice */
+.no-accounts-notice {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 24px;
+    background: linear-gradient(135deg, rgba(158, 158, 158, 0.1) 0%, rgba(158, 158, 158, 0.05) 100%);
+    border: 1px solid rgba(158, 158, 158, 0.3);
+    border-radius: 12px;
+    margin-top: 16px;
+}
+
+.no-accounts-notice .notice-icon {
+    flex: 0 0 auto;
+    width: 48px;
+    height: 48px;
+    background: rgba(158, 158, 158, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.no-accounts-notice .notice-icon i {
+    font-size: 20px;
+    color: #757575;
+}
+
+.no-accounts-notice .notice-content h4 {
+    margin: 0 0 8px 0;
+    color: #555;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.no-accounts-notice .notice-content p {
+    margin: 0;
+    color: #777;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+/* Merge Selection Area */
+.merge-selection-area {
+    margin-top: 8px;
+}
+
+/* Merge Dropdowns Container */
+.merge-dropdowns {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+/* Dropdown Container */
+.merge-dropdown-container {
+    flex: 1;
+    min-width: 0;
+}
+
+.merge-dropdown-container .dropdown-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-weight: 600;
+    color: #333;
+    font-size: 0.95rem;
+}
+
+.merge-dropdown-container .dropdown-label i {
+    font-size: 14px;
+}
+
+.merge-dropdown-container.source .dropdown-label i {
+    color: #f44336;
+}
+
+.merge-dropdown-container.destination .dropdown-label i {
+    color: #4caf50;
+}
+
+.merge-dropdown-container .label-hint {
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: #888;
+}
+
+/* Custom Dropdown Wrapper */
+.merge-dropdown-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+/* Selected Display (like RPC selector) */
+.merge-select-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: 48px;
+    font-size: 0.9rem;
+}
+
+.merge-select-display:hover {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.merge-select-display.open {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.merge-select-display .select-icon {
+    color: #667eea;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.merge-select-display .select-text {
+    flex: 1;
+    font-family: 'Courier New', monospace;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.merge-select-display .select-text.placeholder {
+    color: #a0aec0;
+    font-family: inherit;
+}
+
+.merge-select-display .chevron {
+    color: #667eea;
+    font-size: 12px;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+}
+
+.merge-select-display.open .chevron {
+    transform: rotate(180deg);
+}
+
+/* Dropdown Options Container */
+.merge-select-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 2px solid #667eea;
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    z-index: 1000;
+    max-height: 250px;
+    overflow-y: auto;
+    display: none;
+}
+
+.merge-select-options.open {
+    display: block;
+    animation: dropdownFadeIn 0.15s ease;
+}
+
+@keyframes dropdownFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Individual Option */
+.merge-select-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.merge-select-option:last-child {
+    border-bottom: none;
+}
+
+.merge-select-option:hover {
+    background-color: rgba(102, 126, 234, 0.08);
+}
+
+.merge-select-option.selected {
+    background-color: rgba(102, 126, 234, 0.12);
+}
+
+.merge-select-option.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: #f8fafc;
+}
+
+.merge-select-option.disabled:hover {
+    background-color: #f8fafc;
+}
+
+.merge-select-option .option-icon {
+    color: #667eea;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.merge-select-option .option-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.merge-select-option .option-address {
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    color: #333;
+    margin-bottom: 2px;
+}
+
+.merge-select-option .option-details {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+}
+
+.merge-select-option .option-balance {
+    color: #2e7d32;
+    font-weight: 600;
+}
+
+.merge-select-option .option-status {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+.merge-select-option .option-status.active {
+    background: rgba(76, 175, 80, 0.15);
+    color: #2e7d32;
+}
+
+.merge-select-option .option-status.inactive {
+    background: rgba(158, 158, 158, 0.15);
+    color: #757575;
+}
+
+.merge-select-option .option-status.activating {
+    background: rgba(33, 150, 243, 0.15);
+    color: #1976d2;
+}
+
+.merge-select-option .option-status.deactivating {
+    background: rgba(255, 152, 0, 0.15);
+    color: #ef6c00;
+}
+
+/* Scrollbar for options */
+.merge-select-options::-webkit-scrollbar {
+    width: 6px;
+}
+
+.merge-select-options::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+}
+
+.merge-select-options::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.merge-select-options::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Hidden native select for form compatibility */
+.merge-select {
+    display: none;
+}
+
+/* Arrow between dropdowns */
+.merge-arrow {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    margin-top: 38px;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.merge-arrow i {
+    color: white;
+    font-size: 16px;
+}
+
+/* Account Preview */
+.account-preview {
+    margin-top: 12px;
+    padding: 12px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.account-preview .preview-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.account-preview .preview-row:last-child {
+    margin-bottom: 0;
+}
+
+.account-preview .preview-label {
+    color: #666;
+    font-size: 0.85rem;
+}
+
+.account-preview .preview-value {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #333;
+}
+
+/* Merge Preview */
+.merge-preview {
+    padding: 20px;
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.08) 0%, rgba(76, 175, 80, 0.04) 100%);
+    border: 1px solid rgba(76, 175, 80, 0.3);
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.merge-preview h4 {
+    margin: 0 0 16px 0;
+    color: #2e7d32;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.merge-preview h4 i {
+    font-size: 16px;
+}
+
+.preview-details {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.preview-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px dashed rgba(0, 0, 0, 0.1);
+}
+
+.preview-item:last-child {
+    border-bottom: none;
+}
+
+.preview-item .preview-label {
+    color: #555;
+    font-size: 0.9rem;
+}
+
+.preview-item .preview-value {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #333;
+}
+
+.preview-item.total {
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 2px solid rgba(76, 175, 80, 0.3);
+    border-bottom: none;
+}
+
+.preview-item.total .preview-label {
+    font-weight: 600;
+    color: #2e7d32;
+}
+
+.preview-item.total .preview-value {
+    font-size: 1.1rem;
+    color: #2e7d32;
+}
+
+.preview-item .preview-value.address {
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    color: #667eea;
+}
+
+/* Merge Warning */
+.merge-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    background: rgba(244, 67, 54, 0.08);
+    border: 1px solid rgba(244, 67, 54, 0.3);
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.merge-warning i {
+    color: #d32f2f;
+    font-size: 18px;
+    flex: 0 0 auto;
+    margin-top: 2px;
+}
+
+.merge-warning div {
+    color: #555;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.merge-warning strong {
+    color: #d32f2f;
+}
+
+/* Merge Action */
+.merge-action {
+    display: flex;
+    justify-content: center;
+    padding-top: 8px;
+}
+
+.merge-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 16px 32px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.merge-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+}
+
+.merge-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.merge-btn:disabled {
+    background: #e2e8f0;
+    color: #a0aec0;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
 /* Responsive Design for Manage Account */
 @media (max-width: 768px) {
     .info-grid {
@@ -844,6 +1468,21 @@
     .update-stake-authority-btn,
     .update-stake-withdraw-authority-btn,
     .update-commission-btn {
+        width: 100%;
+    }
+    
+    /* Merge Stake Responsive */
+    .merge-dropdowns {
+        flex-direction: column;
+        gap: 16px;
+    }
+    
+    .merge-arrow {
+        margin: 0 auto;
+        transform: rotate(90deg);
+    }
+    
+    .merge-dropdown-container {
         width: 100%;
     }
 }

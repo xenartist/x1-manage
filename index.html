@@ -194,13 +194,23 @@
                     </div>
 
                     <div id="resultsSection" class="results-section hidden">
-                        <h3><i class="fas fa-info-circle"></i> Vote & Stake Information</h3>
+                        <div class="results-header">
+                            <h3><i class="fas fa-info-circle"></i> Vote & Stake Information</h3>
+                            <button id="refreshStakeInfoBtn" class="refresh-btn" onclick="refreshStakeInfo()" title="Refresh stake information">
+                                <i class="fas fa-sync-alt"></i>
+                                Refresh
+                            </button>
+                        </div>
                         
                         <!-- Add tab navigation -->
                         <div class="tab-navigation">
                             <button class="tab-btn active" onclick="switchTab('vote-info')">
                                 <i class="fas fa-vote-yea"></i>
                                 Vote Account
+                            </button>
+                            <button class="tab-btn" onclick="switchTab('merge-stake')">
+                                <i class="fas fa-compress-arrows-alt"></i>
+                                Merge Stake
                             </button>
                             <div id="stakeTabs" class="stake-tabs">
                                 <!-- Stake tabs will be dynamically added here -->
@@ -269,6 +279,139 @@
                                 </div>
                             </div>
                             
+                            <!-- Merge Stake Tab -->
+                            <div id="merge-stake" class="tab-content">
+                                <div class="merge-stake-container">
+                                    <!-- Wallet Connection Required Notice -->
+                                    <div id="mergeStakeWalletNotice" class="wallet-notice">
+                                        <div class="notice-icon">
+                                            <i class="fas fa-wallet"></i>
+                                        </div>
+                                        <div class="notice-content">
+                                            <h4>Connect Wallet Required</h4>
+                                            <p>Please connect your Backpack wallet to view and merge your stake accounts.</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Merge Stake Content (shown when wallet connected) -->
+                                    <div id="mergeStakeContent" class="merge-stake-content hidden">
+                                        <!-- Info Card -->
+                                        <div class="merge-info-card">
+                                            <div class="info-icon">
+                                                <i class="fas fa-info-circle"></i>
+                                            </div>
+                                            <div class="info-text">
+                                                <p>Merge stake accounts to consolidate your staked XNT. Select a source account (will be closed) and a destination account (will receive the funds).</p>
+                                            </div>
+                                        </div>
+
+                                        <!-- No Accounts Notice -->
+                                        <div id="mergeNoAccountsNotice" class="no-accounts-notice hidden">
+                                            <div class="notice-icon">
+                                                <i class="fas fa-inbox"></i>
+                                            </div>
+                                            <div class="notice-content">
+                                                <h4>No Mergeable Stake Accounts</h4>
+                                                <p>You need at least 2 stake accounts with the same status and delegated to the same vote account to merge.</p>
+                                            </div>
+                                        </div>
+
+                                        <!-- Merge Selection Area -->
+                                        <div id="mergeSelectionArea" class="merge-selection-area">
+                                            <div class="merge-dropdowns">
+                                                <!-- Source Account (Left) -->
+                                                <div class="merge-dropdown-container source">
+                                                    <label class="dropdown-label">
+                                                        <i class="fas fa-sign-out-alt"></i>
+                                                        Source Account
+                                                        <span class="label-hint">(will be closed)</span>
+                                                    </label>
+                                                    <div class="merge-dropdown-wrapper">
+                                                        <div id="mergeSourceDisplay" class="merge-select-display" onclick="toggleMergeDropdown('source')">
+                                                            <i class="fas fa-coins select-icon"></i>
+                                                            <span class="select-text placeholder">Select source stake account...</span>
+                                                            <i class="fas fa-chevron-down chevron"></i>
+                                                        </div>
+                                                        <div id="mergeSourceOptions" class="merge-select-options">
+                                                            <!-- Options will be populated by JS -->
+                                                        </div>
+                                                        <input type="hidden" id="mergeSourceSelect" value="">
+                                                    </div>
+                                                </div>
+
+                                                <!-- Arrow -->
+                                                <div class="merge-arrow">
+                                                    <i class="fas fa-arrow-right"></i>
+                                                </div>
+
+                                                <!-- Destination Account (Right) -->
+                                                <div class="merge-dropdown-container destination">
+                                                    <label class="dropdown-label">
+                                                        <i class="fas fa-sign-in-alt"></i>
+                                                        Destination Account
+                                                        <span class="label-hint">(will keep)</span>
+                                                    </label>
+                                                    <div class="merge-dropdown-wrapper">
+                                                        <div id="mergeDestDisplay" class="merge-select-display" onclick="toggleMergeDropdown('dest')">
+                                                            <i class="fas fa-coins select-icon"></i>
+                                                            <span class="select-text placeholder">Select destination stake account...</span>
+                                                            <i class="fas fa-chevron-down chevron"></i>
+                                                        </div>
+                                                        <div id="mergeDestOptions" class="merge-select-options">
+                                                            <!-- Options will be populated by JS -->
+                                                        </div>
+                                                        <input type="hidden" id="mergeDestinationSelect" value="">
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Merge Preview -->
+                                            <div id="mergePreview" class="merge-preview hidden">
+                                                <h4><i class="fas fa-calculator"></i> Merge Preview</h4>
+                                                <div class="preview-details">
+                                                    <div class="preview-item">
+                                                        <span class="preview-label">Source:</span>
+                                                        <span id="previewSourceAddress" class="preview-value address">-</span>
+                                                    </div>
+                                                    <div class="preview-item">
+                                                        <span class="preview-label">Source Balance:</span>
+                                                        <span id="previewSourceBalance" class="preview-value">-</span>
+                                                    </div>
+                                                    <div class="preview-item">
+                                                        <span class="preview-label">Destination:</span>
+                                                        <span id="previewDestAddress" class="preview-value address">-</span>
+                                                    </div>
+                                                    <div class="preview-item">
+                                                        <span class="preview-label">Destination Balance:</span>
+                                                        <span id="previewDestBalance" class="preview-value">-</span>
+                                                    </div>
+                                                    <div class="preview-item total">
+                                                        <span class="preview-label">Total After Merge:</span>
+                                                        <span id="previewTotalBalance" class="preview-value">-</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Warning Message -->
+                                            <div class="merge-warning">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                                <div>
+                                                    <strong>Warning:</strong> The source stake account will be permanently closed after merging. This action cannot be undone.
+                                                </div>
+                                            </div>
+
+                                            <!-- Merge Button -->
+                                            <div class="merge-action">
+                                                <button id="executeMergeBtn" class="merge-btn" onclick="executeMergeStake()" disabled>
+                                                    <i class="fas fa-compress-arrows-alt"></i>
+                                                    Merge Stake Accounts
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- Stake tabs content will be dynamically added here -->
                             <div id="stakeTabsContent"></div>
                         </div>

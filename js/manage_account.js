@@ -842,6 +842,13 @@ function switchTab(tabId) {
                 checkStakeAuthorities(tabId);
             }, 100);
         }
+        
+        // Initialize merge stake UI when switching to merge-stake tab
+        if (tabId === 'merge-stake') {
+            setTimeout(() => {
+                initializeMergeStakeUI();
+            }, 100);
+        }
     } else {
         console.warn('Could not find tab content for:', tabId);
     }
@@ -3008,6 +3015,500 @@ async function executeUpdateCommission() {
         showError(errorMessage);
     }
 }
+
+// ========================================
+// Merge Stake Functions
+// ========================================
+
+// Store mergeable accounts data
+let mergeableAccountsData = [];
+
+// Initialize merge stake UI when switching to the tab
+function initializeMergeStakeUI() {
+    console.log('Initializing Merge Stake UI');
+    
+    const walletNotice = document.getElementById('mergeStakeWalletNotice');
+    const mergeContent = document.getElementById('mergeStakeContent');
+    const noAccountsNotice = document.getElementById('mergeNoAccountsNotice');
+    const selectionArea = document.getElementById('mergeSelectionArea');
+    
+    if (!walletConnected || !connectedWalletAddress) {
+        // Show wallet notice, hide content
+        walletNotice.classList.remove('hidden');
+        mergeContent.classList.add('hidden');
+        return;
+    }
+    
+    // Hide wallet notice, show content
+    walletNotice.classList.add('hidden');
+    mergeContent.classList.remove('hidden');
+    
+    // Populate the dropdowns with stake accounts
+    populateMergeDropdowns();
+}
+
+// Populate merge stake dropdowns with available stake accounts
+function populateMergeDropdowns() {
+    const sourceInput = document.getElementById('mergeSourceSelect');
+    const destInput = document.getElementById('mergeDestinationSelect');
+    const sourceOptions = document.getElementById('mergeSourceOptions');
+    const destOptions = document.getElementById('mergeDestOptions');
+    const sourceDisplay = document.getElementById('mergeSourceDisplay');
+    const destDisplay = document.getElementById('mergeDestDisplay');
+    const noAccountsNotice = document.getElementById('mergeNoAccountsNotice');
+    const selectionArea = document.getElementById('mergeSelectionArea');
+    
+    // Reset values
+    sourceInput.value = '';
+    destInput.value = '';
+    sourceOptions.innerHTML = '';
+    destOptions.innerHTML = '';
+    
+    // Reset display text
+    sourceDisplay.querySelector('.select-text').textContent = 'Select source stake account...';
+    sourceDisplay.querySelector('.select-text').classList.add('placeholder');
+    destDisplay.querySelector('.select-text').textContent = 'Select destination stake account...';
+    destDisplay.querySelector('.select-text').classList.add('placeholder');
+    
+    // Reset preview
+    document.getElementById('mergePreview').classList.add('hidden');
+    document.getElementById('executeMergeBtn').disabled = true;
+    
+    // Check if we have enough stake accounts to merge
+    if (!currentStakeAccounts || currentStakeAccounts.length < 2) {
+        noAccountsNotice.classList.remove('hidden');
+        selectionArea.classList.add('hidden');
+        console.log('Not enough stake accounts to merge:', currentStakeAccounts?.length || 0);
+        return;
+    }
+    
+    // Filter stake accounts that can be merged (user must have authority)
+    mergeableAccountsData = currentStakeAccounts.filter(account => {
+        const stakeAuthority = account.data.meta?.authorized?.staker || '';
+        const withdrawAuthority = account.data.meta?.authorized?.withdrawer || '';
+        return stakeAuthority === connectedWalletAddress || withdrawAuthority === connectedWalletAddress;
+    });
+    
+    if (mergeableAccountsData.length < 2) {
+        noAccountsNotice.classList.remove('hidden');
+        selectionArea.classList.add('hidden');
+        console.log('Not enough mergeable stake accounts:', mergeableAccountsData.length);
+        return;
+    }
+    
+    noAccountsNotice.classList.add('hidden');
+    selectionArea.classList.remove('hidden');
+    
+    // Create options for both dropdowns
+    mergeableAccountsData.forEach((account) => {
+        const balance = (account.lamports / 1e9).toFixed(4);
+        const shortAddress = account.pubkey.slice(0, 6) + '...' + account.pubkey.slice(-6);
+        const status = getStakeStatusForMerge(account);
+        
+        // Create source option
+        const sourceOption = createMergeOption(account.pubkey, shortAddress, balance, status, 'source');
+        sourceOptions.appendChild(sourceOption);
+        
+        // Create destination option
+        const destOption = createMergeOption(account.pubkey, shortAddress, balance, status, 'dest');
+        destOptions.appendChild(destOption);
+    });
+    
+    console.log('Populated merge dropdowns with', mergeableAccountsData.length, 'accounts');
+}
+
+// Create a merge option element
+function createMergeOption(pubkey, shortAddress, balance, status, type) {
+    const option = document.createElement('div');
+    option.className = 'merge-select-option';
+    option.dataset.value = pubkey;
+    option.dataset.balance = balance;
+    option.dataset.status = status.text;
+    option.dataset.statusClass = status.class;
+    
+    option.innerHTML = `
+        <i class="fas fa-coins option-icon"></i>
+        <div class="option-content">
+            <div class="option-address">${shortAddress}</div>
+            <div class="option-details">
+                <span class="option-balance">${balance} XNT</span>
+                <span class="option-status ${status.class}">${status.text}</span>
+            </div>
+        </div>
+    `;
+    
+    option.onclick = () => selectMergeOption(type, pubkey, shortAddress, balance, status);
+    
+    return option;
+}
+
+// Get stake status for merge display
+function getStakeStatusForMerge(account) {
+    const delegation = account.data.stake?.delegation;
+    if (!delegation) {
+        return { text: 'Inactive', class: 'inactive' };
+    }
+    
+    const activationEpoch = parseInt(delegation.activationEpoch);
+    const deactivationEpoch = parseInt(delegation.deactivationEpoch);
+    const currentEpoch = window.currentEpochCache || 0;
+    
+    if (deactivationEpoch !== 18446744073709551615 && deactivationEpoch <= currentEpoch) {
+        return { text: 'Inactive', class: 'inactive' };
+    }
+    
+    if (deactivationEpoch !== 18446744073709551615) {
+        return { text: 'Deactivating', class: 'deactivating' };
+    }
+    
+    if (activationEpoch <= currentEpoch) {
+        return { text: 'Active', class: 'active' };
+    }
+    
+    return { text: 'Activating', class: 'activating' };
+}
+
+// Toggle merge dropdown
+function toggleMergeDropdown(type) {
+    const display = document.getElementById(type === 'source' ? 'mergeSourceDisplay' : 'mergeDestDisplay');
+    const options = document.getElementById(type === 'source' ? 'mergeSourceOptions' : 'mergeDestOptions');
+    const otherOptions = document.getElementById(type === 'source' ? 'mergeDestOptions' : 'mergeSourceOptions');
+    const otherDisplay = document.getElementById(type === 'source' ? 'mergeDestDisplay' : 'mergeSourceDisplay');
+    
+    // Close other dropdown
+    otherOptions.classList.remove('open');
+    otherDisplay.classList.remove('open');
+    
+    // Toggle current dropdown
+    const isOpen = options.classList.contains('open');
+    if (isOpen) {
+        options.classList.remove('open');
+        display.classList.remove('open');
+    } else {
+        options.classList.add('open');
+        display.classList.add('open');
+        updateDisabledOptions();
+    }
+}
+
+// Update disabled state of options
+function updateDisabledOptions() {
+    const sourceValue = document.getElementById('mergeSourceSelect').value;
+    const destValue = document.getElementById('mergeDestinationSelect').value;
+    
+    // Update source options - disable the one selected in dest
+    document.querySelectorAll('#mergeSourceOptions .merge-select-option').forEach(option => {
+        if (option.dataset.value === destValue) {
+            option.classList.add('disabled');
+        } else {
+            option.classList.remove('disabled');
+        }
+    });
+    
+    // Update dest options - disable the one selected in source
+    document.querySelectorAll('#mergeDestOptions .merge-select-option').forEach(option => {
+        if (option.dataset.value === sourceValue) {
+            option.classList.add('disabled');
+        } else {
+            option.classList.remove('disabled');
+        }
+    });
+}
+
+// Select a merge option
+function selectMergeOption(type, pubkey, shortAddress, balance, status) {
+    const otherType = type === 'source' ? 'dest' : 'source';
+    const otherInput = document.getElementById(type === 'source' ? 'mergeDestinationSelect' : 'mergeSourceSelect');
+    
+    // Check if this option is disabled (already selected in the other dropdown)
+    if (otherInput.value === pubkey) {
+        return; // Don't allow selecting the same account
+    }
+    
+    const input = document.getElementById(type === 'source' ? 'mergeSourceSelect' : 'mergeDestinationSelect');
+    const display = document.getElementById(type === 'source' ? 'mergeSourceDisplay' : 'mergeDestDisplay');
+    const options = document.getElementById(type === 'source' ? 'mergeSourceOptions' : 'mergeDestOptions');
+    
+    // Update value
+    input.value = pubkey;
+    input.dataset.balance = balance;
+    input.dataset.status = status.text;
+    input.dataset.statusClass = status.class;
+    
+    // Update display
+    const selectText = display.querySelector('.select-text');
+    selectText.textContent = `${shortAddress} (${balance} XNT)`;
+    selectText.classList.remove('placeholder');
+    
+    // Mark selected option
+    options.querySelectorAll('.merge-select-option').forEach(opt => {
+        opt.classList.remove('selected');
+        if (opt.dataset.value === pubkey) {
+            opt.classList.add('selected');
+        }
+    });
+    
+    // Close dropdown
+    options.classList.remove('open');
+    display.classList.remove('open');
+    
+    // Update preview
+    updateMergePreview();
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.merge-dropdown-wrapper')) {
+        document.querySelectorAll('.merge-select-options').forEach(opt => opt.classList.remove('open'));
+        document.querySelectorAll('.merge-select-display').forEach(disp => disp.classList.remove('open'));
+    }
+});
+
+// Update merge preview
+function updateMergePreview() {
+    const sourceInput = document.getElementById('mergeSourceSelect');
+    const destInput = document.getElementById('mergeDestinationSelect');
+    const previewSection = document.getElementById('mergePreview');
+    const mergeBtn = document.getElementById('executeMergeBtn');
+    
+    const sourceValue = sourceInput.value;
+    const destValue = destInput.value;
+    
+    if (!sourceValue || !destValue) {
+        previewSection.classList.add('hidden');
+        mergeBtn.disabled = true;
+        return;
+    }
+    
+    // Get account data
+    const sourceAccount = mergeableAccountsData.find(a => a.pubkey === sourceValue);
+    const destAccount = mergeableAccountsData.find(a => a.pubkey === destValue);
+    
+    if (!sourceAccount || !destAccount) {
+        previewSection.classList.add('hidden');
+        mergeBtn.disabled = true;
+        return;
+    }
+    
+    const sourceBalance = sourceAccount.lamports / 1e9;
+    const destBalance = destAccount.lamports / 1e9;
+    const totalBalance = sourceBalance + destBalance;
+    
+    // Check if statuses match
+    const sourceStatus = sourceInput.dataset.status;
+    const destStatus = destInput.dataset.status;
+    
+    if (sourceStatus !== destStatus) {
+        previewSection.classList.add('hidden');
+        mergeBtn.disabled = true;
+        showWarning(`Cannot merge: Status mismatch. Source is "${sourceStatus}" but destination is "${destStatus}". Both must have the same status.`);
+        return;
+    }
+    
+    hideWarning();
+    
+    // Update preview values
+    const shortSourceAddr = sourceValue.slice(0, 6) + '...' + sourceValue.slice(-6);
+    const shortDestAddr = destValue.slice(0, 6) + '...' + destValue.slice(-6);
+    
+    document.getElementById('previewSourceAddress').textContent = shortSourceAddr;
+    document.getElementById('previewSourceBalance').textContent = sourceBalance.toFixed(4) + ' XNT';
+    document.getElementById('previewDestAddress').textContent = shortDestAddr;
+    document.getElementById('previewDestBalance').textContent = destBalance.toFixed(4) + ' XNT';
+    document.getElementById('previewTotalBalance').textContent = totalBalance.toFixed(4) + ' XNT';
+    
+    previewSection.classList.remove('hidden');
+    mergeBtn.disabled = false;
+}
+
+// Make dropdown toggle globally available
+window.toggleMergeDropdown = toggleMergeDropdown;
+
+// Refresh stake information
+async function refreshStakeInfo() {
+    const refreshBtn = document.getElementById('refreshStakeInfoBtn');
+    const voteAccountAddress = document.getElementById('voteAccount').value.trim();
+    
+    if (!voteAccountAddress) {
+        showError('No account address to refresh');
+        return;
+    }
+    
+    try {
+        // Add spinning animation
+        refreshBtn.classList.add('refreshing');
+        refreshBtn.disabled = true;
+        
+        showInfo('Refreshing stake information...', true);
+        
+        // Re-run the search
+        await handleSearch();
+        
+        // If currently on merge-stake tab, refresh the dropdowns
+        if (activeTab === 'merge-stake') {
+            initializeMergeStakeUI();
+        }
+        
+        showSuccess('✅ Stake information refreshed successfully!');
+        setTimeout(() => hideSuccess(), 3000);
+        
+    } catch (error) {
+        console.error('Refresh failed:', error);
+        showError('Failed to refresh: ' + (error.message || 'Unknown error'));
+    } finally {
+        // Remove spinning animation
+        refreshBtn.classList.remove('refreshing');
+        refreshBtn.disabled = false;
+    }
+}
+
+// Make refresh function globally available
+window.refreshStakeInfo = refreshStakeInfo;
+
+// Execute merge stake
+async function executeMergeStake() {
+    const sourceSelect = document.getElementById('mergeSourceSelect');
+    const destSelect = document.getElementById('mergeDestinationSelect');
+    const mergeBtn = document.getElementById('executeMergeBtn');
+    
+    const sourceAddress = sourceSelect.value;
+    const destAddress = destSelect.value;
+    
+    if (!sourceAddress || !destAddress) {
+        showError('Please select both source and destination accounts');
+        return;
+    }
+    
+    if (!walletConnected || !window.backpack) {
+        showError('Please connect your wallet first');
+        return;
+    }
+    
+    try {
+        mergeBtn.disabled = true;
+        mergeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Merging...';
+        showInfo('Preparing merge transaction...', true);
+        
+        const wallet = window.backpack;
+        const conn = window.connection || connection;
+        
+        const sourcePubkey = new solanaWeb3.PublicKey(sourceAddress);
+        const destPubkey = new solanaWeb3.PublicKey(destAddress);
+        const authorityPubkey = new solanaWeb3.PublicKey(connectedWalletAddress);
+        
+        // Get stake account info to find stake authority
+        const sourceAccountInfo = currentStakeAccounts.find(a => a.pubkey === sourceAddress);
+        const stakeAuthority = sourceAccountInfo?.data.meta?.authorized?.staker;
+        
+        if (stakeAuthority !== connectedWalletAddress) {
+            throw new Error('Connected wallet is not the stake authority');
+        }
+        
+        // Create merge instruction
+        // Merge instruction type is 7 for Stake program
+        const STAKE_PROGRAM_ID = new solanaWeb3.PublicKey('Stake11111111111111111111111111111111111111');
+        const SYSVAR_CLOCK_PUBKEY = new solanaWeb3.PublicKey('SysvarC1ock11111111111111111111111111111111');
+        const SYSVAR_STAKE_HISTORY_PUBKEY = new solanaWeb3.PublicKey('SysvarStakeHistory1111111111111111111111111');
+        
+        // Merge instruction data: just the instruction type (7)
+        const instructionData = new Uint8Array(4);
+        instructionData[0] = 7;  // Merge = 7 (little endian)
+        instructionData[1] = 0;
+        instructionData[2] = 0;
+        instructionData[3] = 0;
+        
+        const mergeInstruction = new solanaWeb3.TransactionInstruction({
+            keys: [
+                { pubkey: destPubkey, isSigner: false, isWritable: true },      // Destination stake account
+                { pubkey: sourcePubkey, isSigner: false, isWritable: true },    // Source stake account
+                { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: false },
+                { pubkey: SYSVAR_STAKE_HISTORY_PUBKEY, isSigner: false, isWritable: false },
+                { pubkey: authorityPubkey, isSigner: true, isWritable: false }, // Stake authority
+            ],
+            programId: STAKE_PROGRAM_ID,
+            data: instructionData,
+        });
+        
+        // Create transaction
+        const transaction = new solanaWeb3.Transaction();
+        const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.lastValidBlockHeight = lastValidBlockHeight;
+        transaction.feePayer = authorityPubkey;
+        transaction.add(mergeInstruction);
+        
+        console.log('Merge transaction created:', {
+            source: sourceAddress,
+            destination: destAddress,
+            authority: connectedWalletAddress
+        });
+        
+        showInfo('Please approve the transaction in your wallet...', true);
+        
+        // Sign and send transaction
+        const signedTransaction = await wallet.signTransaction(transaction);
+        const signature = await conn.sendRawTransaction(signedTransaction.serialize(), {
+            skipPreflight: false,
+            preflightCommitment: 'confirmed'
+        });
+        
+        console.log('Transaction sent:', signature);
+        showInfo('Transaction sent! Waiting for confirmation...', true);
+        
+        // Wait for confirmation
+        await conn.confirmTransaction(signature, 'confirmed');
+        
+        const explorerUrl = getExplorerUrl(signature);
+        showSuccess(`✅ Stake accounts merged successfully! <a href="${explorerUrl}" target="_blank">View transaction</a>`);
+        
+        // Auto refresh after a short delay to allow network to update
+        showInfo('Refreshing stake accounts...', true);
+        setTimeout(async () => {
+            try {
+                const voteAccountAddress = document.getElementById('voteAccount').value.trim();
+                if (voteAccountAddress) {
+                    await handleSearch();
+                    // Refresh the merge stake dropdowns
+                    if (activeTab === 'merge-stake') {
+                        initializeMergeStakeUI();
+                    }
+                    showSuccess('✅ Stake accounts updated!');
+                    setTimeout(() => hideSuccess(), 3000);
+                }
+            } catch (err) {
+                console.error('Auto refresh failed:', err);
+                hideInfo();
+            }
+        }, 3000); // Wait 3 seconds for network to update
+        
+    } catch (error) {
+        console.error('Merge stake failed:', error);
+        
+        let errorMessage = 'Failed to merge stake accounts: ';
+        
+        if (error.message && error.message.includes('rejected')) {
+            errorMessage = 'Transaction was rejected by user';
+        } else if (error.message && error.message.includes('insufficient funds')) {
+            errorMessage = 'Insufficient funds for transaction';
+        } else if (error.message && error.message.includes('stake authority')) {
+            errorMessage = 'You are not authorized to merge these stake accounts';
+        } else if (error.message && error.message.includes('MergeTransientStake')) {
+            errorMessage = 'Cannot merge: One or both stake accounts are in a transient state (activating/deactivating)';
+        } else if (error.message && error.message.includes('MergeMismatch')) {
+            errorMessage = 'Cannot merge: Stake accounts have different lockup, withdraw authority, or are not delegated to the same vote account';
+        } else {
+            errorMessage += error.message || 'Unknown error occurred';
+        }
+        
+        showError(errorMessage);
+    } finally {
+        mergeBtn.disabled = false;
+        mergeBtn.innerHTML = '<i class="fas fa-compress-arrows-alt"></i> Merge Stake Accounts';
+    }
+}
+
+// Make functions globally available
+window.executeMergeStake = executeMergeStake;
 
 console.log('Manage Account.js loaded successfully with all features');
 
