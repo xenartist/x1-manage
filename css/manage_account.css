@@ -1355,33 +1355,33 @@
     color: #667eea;
 }
 
-/* Merge Warning */
-.merge-warning {
+/* Merge Info Notice */
+.merge-info-notice {
     display: flex;
     align-items: flex-start;
     gap: 12px;
     padding: 16px;
-    background: rgba(244, 67, 54, 0.08);
-    border: 1px solid rgba(244, 67, 54, 0.3);
+    background: rgba(102, 126, 234, 0.08);
+    border: 1px solid rgba(102, 126, 234, 0.3);
     border-radius: 10px;
     margin-bottom: 20px;
 }
 
-.merge-warning i {
-    color: #d32f2f;
+.merge-info-notice i {
+    color: #667eea;
     font-size: 18px;
     flex: 0 0 auto;
     margin-top: 2px;
 }
 
-.merge-warning div {
+.merge-info-notice div {
     color: #555;
     font-size: 0.9rem;
     line-height: 1.5;
 }
 
-.merge-warning strong {
-    color: #d32f2f;
+.merge-info-notice strong {
+    color: #667eea;
 }
 
 /* Merge Action */
