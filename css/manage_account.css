@@ -13,6 +13,7 @@
 
 .input-group {
     margin-bottom: 1.5rem;
+    position: relative;
 }
 
 .input-group label {
@@ -21,6 +22,18 @@
     font-weight: 600;
     color: #333;
     font-size: 1rem;
+}
+
+.input-help {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: #666;
+    transition: color 0.3s ease;
+}
+
+.input-help i {
+    margin-right: 4px;
 }
 
 .input-wrapper {
@@ -1484,5 +1497,271 @@
     
     .merge-dropdown-container {
         width: 100%;
+    }
+}
+
+/* Search Suggestions Dropdown */
+.search-suggestions {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 1000;
+    opacity: 0;
+    transform: translateY(-10px);
+    pointer-events: none;
+    transition: all 0.2s ease;
+}
+
+.search-suggestions.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: all;
+}
+
+.suggestion-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.suggestion-item:hover {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+}
+
+.suggestion-item.no-results {
+    color: #999;
+    cursor: default;
+    justify-content: center;
+}
+
+.suggestion-item.no-results:hover {
+    background: transparent;
+}
+
+.suggestion-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.suggestion-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.suggestion-icon-placeholder {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 1.2rem;
+}
+
+.suggestion-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.suggestion-name {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.suggestion-identity {
+    font-size: 0.85rem;
+    color: #666;
+    font-family: 'Courier New', monospace;
+}
+
+.suggestion-commission {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #667eea;
+    flex-shrink: 0;
+}
+
+/* Recent Validators Section */
+.recent-validators-section {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.recent-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.recent-header h4 {
+    margin: 0;
+    font-size: 1rem;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.recent-header h4 i {
+    color: #667eea;
+}
+
+.clear-recent-btn {
+    background: transparent;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.clear-recent-btn:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+.recent-validators {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.no-recent {
+    color: #999;
+    font-size: 0.9rem;
+    text-align: center;
+    padding: 1rem;
+}
+
+.recent-validator-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+    color: #333;
+}
+
+.recent-validator-btn:hover {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.recent-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.recent-icon-text {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+.recent-validator-btn:hover .recent-icon-text {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.recent-name {
+    font-weight: 500;
+}
+
+/* Recent validator wrapper for positioning delete button */
+.recent-validator-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+/* Delete button for recent validators */
+.recent-validator-delete {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    background: #ef4444;
+    border: 2px solid white;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: all 0.2s ease;
+    z-index: 10;
+}
+
+.recent-validator-wrapper:hover .recent-validator-delete {
+    opacity: 1;
+}
+
+.recent-validator-delete:hover {
+    background: #dc2626;
+    transform: scale(1.1);
+}
+
+.recent-validator-delete i {
+    color: white;
+    font-size: 0.7rem;
+}
+
+/* Identity Tab Styles - uses same info-card style as other tabs */
+
+/* Responsive for new features */
+@media (max-width: 768px) {
+    .search-suggestions {
+        max-height: 300px;
+    }
+    
+    .recent-validators {
+        justify-content: center;
     }
 }

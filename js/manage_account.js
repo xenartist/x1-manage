@@ -1,6 +1,7 @@
 // Manage Account Page Variables
 let currentStakeAccounts = [];
 let activeTab = 'vote-info';
+let currentValidatorInfo = null; // Current selected validator info
 
 // Global cache for current epoch
 window.currentEpochCache = null;
@@ -11,7 +12,7 @@ const searchBtn = document.getElementById('searchBtn');
 const resultsSection = document.getElementById('resultsSection');
 
 // Result display elements
-const validatorIdentityEl = document.getElementById('validatorIdentity');
+const voteAccountAddressEl = document.getElementById('voteAccountAddress');
 const withdrawAuthorityEl = document.getElementById('withdrawAuthority');
 const creditsEl = document.getElementById('credits');
 const commissionEl = document.getElementById('commission');
@@ -44,8 +45,12 @@ function initializeManageAccount() {
         });
     }
     
+    // Load and display recent validators
+    loadRecentValidators();
+    
     console.log('Manage Account page initialized');
 }
+
 
 // Wallet event callbacks from app.js
 function onWalletConnected() {
@@ -100,12 +105,152 @@ function onWalletUIUpdated(address) {
     }
 }
 
+// Load validator by identity (called when clicking recent validator or after detecting identity)
+async function loadValidatorByIdentity(identity) {
+    try {
+        hideAllMessages();
+        hideResults();
+        removeWithdrawAuthorityMatch();
+        
+        showInfo('Loading validator information...', true);
+        
+        // Find vote account for this identity
+        const voteAccounts = await connection.getVoteAccounts();
+        const allVoteAccounts = [...voteAccounts.current, ...voteAccounts.delinquent];
+        const voteAcc = allVoteAccounts.find(acc => acc.nodePubkey === identity);
+        
+        if (!voteAcc) {
+            throw new Error('Vote account not found for this validator identity');
+        }
+        
+        // Create validator info with basic data
+        currentValidatorInfo = {
+            identity: identity,
+            votePubkey: voteAcc.votePubkey,
+            name: `${identity.substring(0, 4)}...${identity.substring(identity.length - 4)}`,
+            commission: voteAcc.commission,
+            activatedStake: voteAcc.activatedStake,
+            lastVote: voteAcc.lastVote
+        };
+        
+        // Save to recent validators
+        saveRecentValidator(currentValidatorInfo);
+        
+        // Get current epoch
+        const currentEpoch = await getCurrentEpoch();
+        window.currentEpochCache = currentEpoch;
+        
+        // Get vote account info
+        const voteAccountPubkey = new solanaWeb3.PublicKey(voteAcc.votePubkey);
+        await handleVoteAccountSearch(voteAccountPubkey, currentEpoch);
+        
+        // Update the search input to show the identity
+        voteAccountInput.value = identity;
+        
+        // Update recent validators display
+        loadRecentValidators();
+        
+    } catch (error) {
+        hideInfo();
+        showError(`Error loading validator: ${error.message}`);
+        console.error('Error:', error);
+    }
+}
+
+// Save validator to recent list (localStorage)
+function saveRecentValidator(validator) {
+    try {
+        const MAX_RECENT = 10;
+        let recent = JSON.parse(localStorage.getItem('recentValidators') || '[]');
+        
+        // Remove if already exists
+        recent = recent.filter(v => v.identity !== validator.identity);
+        
+        // Add to beginning
+        recent.unshift({
+            identity: validator.identity,
+            votePubkey: validator.votePubkey,
+            name: validator.name,
+            iconUrl: validator.iconUrl,
+            commission: validator.commission,
+            timestamp: Date.now()
+        });
+        
+        // Keep only MAX_RECENT
+        recent = recent.slice(0, MAX_RECENT);
+        
+        localStorage.setItem('recentValidators', JSON.stringify(recent));
+    } catch (error) {
+        console.error('Failed to save recent validator:', error);
+    }
+}
+
+// Load and display recent validators
+function loadRecentValidators() {
+    try {
+        const recent = JSON.parse(localStorage.getItem('recentValidators') || '[]');
+        const container = document.getElementById('recentValidators');
+        
+        if (!container) return;
+        
+        if (recent.length === 0) {
+            container.innerHTML = '<div class="no-recent">No recent validators. Search for a validator to get started.</div>';
+            return;
+        }
+        
+        container.innerHTML = recent.map(v => `
+            <div class="recent-validator-wrapper">
+                <button class="recent-validator-btn" onclick="loadValidatorByIdentity('${v.identity}')" title="${v.name}">
+                    ${v.iconUrl ? 
+                        `<img src="${v.iconUrl}" alt="${v.name}" class="recent-icon" onerror="this.outerHTML='<span class=\\'recent-icon-text\\'>${v.name.charAt(0).toUpperCase()}</span>'">` : 
+                        `<span class="recent-icon-text">${v.name.charAt(0).toUpperCase()}</span>`
+                    }
+                    <span class="recent-name">${v.name.length > 12 ? v.name.substring(0, 12) + '...' : v.name}</span>
+                </button>
+                <button class="recent-validator-delete" onclick="clearRecentValidator('${v.identity}', event)" title="Remove from recent">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Failed to load recent validators:', error);
+    }
+}
+
+// Clear a recent validator
+function clearRecentValidator(identity, event) {
+    if (event) {
+        event.stopPropagation();
+    }
+    
+    try {
+        let recent = JSON.parse(localStorage.getItem('recentValidators') || '[]');
+        recent = recent.filter(v => v.identity !== identity);
+        localStorage.setItem('recentValidators', JSON.stringify(recent));
+        loadRecentValidators();
+    } catch (error) {
+        console.error('Failed to clear recent validator:', error);
+    }
+}
+
+// Clear all recent validators
+function clearAllRecentValidators() {
+    try {
+        localStorage.removeItem('recentValidators');
+        loadRecentValidators();
+        showInfo('Recent validators cleared');
+        setTimeout(() => hideInfo(), 2000);
+    } catch (error) {
+        console.error('Failed to clear recent validators:', error);
+    }
+}
+
 // Handle search button click
 async function handleSearch() {
     const accountStr = voteAccountInput.value.trim();
     
     if (!accountStr) {
-        showError('Please enter an account address (vote or stake)');
+        showError('Please enter an account address (identity, vote, or stake)');
         return;
     }
 
@@ -120,7 +265,7 @@ async function handleSearch() {
         // GET CURRENT EPOCH EARLY - before any other queries
         showInfo('Getting current epoch information...', true);
         const currentEpoch = await getCurrentEpoch();
-        console.log('📅 Early epoch query result:', currentEpoch);
+        console.log('📅 Current epoch:', currentEpoch);
         
         if (currentEpoch === null) {
             console.warn('⚠️ Failed to get current epoch, stake status may be inaccurate');
@@ -128,20 +273,25 @@ async function handleSearch() {
         
         // Store for global access
         window.currentEpochCache = currentEpoch;
-        console.log('💾 Cached epoch globally:', window.currentEpochCache);
         
         // Detect account type by checking the owner/program
         showInfo('Detecting account type...', true);
         const accountType = await detectAccountType(accountPubkey);
         
+        console.log('🔍 Detected account type:', accountType);
+        
         if (accountType === 'vote') {
-            // Handle as vote account (existing logic)
+            // Handle as vote account
             await handleVoteAccountSearch(accountPubkey, currentEpoch);
         } else if (accountType === 'stake') {
-            // Handle as stake account (new logic)
+            // Handle as stake account
             await handleStakeAccountSearch(accountPubkey, currentEpoch);
+        } else if (accountType === 'identity') {
+            // Handle as validator identity
+            const identity = accountPubkey.toString();
+            await loadValidatorByIdentity(identity);
         } else {
-            throw new Error(`Invalid account type. This account is not a vote account or stake account (Owner: ${accountType})`);
+            throw new Error(`Invalid account type. This account is not a vote account, stake account, or validator identity (Owner: ${accountType})`);
         }
         
     } catch (error) {
@@ -155,7 +305,7 @@ async function handleSearch() {
     }
 }
 
-// Detect whether the account is a vote account or stake account
+// Detect whether the account is a vote account, stake account, or validator identity
 async function detectAccountType(accountPubkey) {
     try {
         const accountInfo = await connection.getAccountInfo(accountPubkey);
@@ -174,6 +324,21 @@ async function detectAccountType(accountPubkey) {
         } else if (owner === stakeProgram) {
             return 'stake';
         } else {
+            // Check if this is a validator identity by looking in vote accounts
+            const identity = accountPubkey.toString();
+            
+            try {
+                const voteAccounts = await connection.getVoteAccounts();
+                const found = [...voteAccounts.current, ...voteAccounts.delinquent]
+                    .find(acc => acc.nodePubkey === identity);
+                
+                if (found) {
+                    return 'identity';
+                }
+            } catch (e) {
+                console.error('Failed to check vote accounts:', e);
+            }
+            
             return owner; // Return the actual owner for error message
         }
     } catch (error) {
@@ -188,7 +353,45 @@ async function handleVoteAccountSearch(voteAccountPubkey, currentEpoch) {
     showInfo('Loading vote account information...', true);
     
     const voteAccountInfo = await getVoteAccountInfoWithWeb3(voteAccountPubkey);
-    displayResults(voteAccountInfo);
+    const voteAccountAddress = voteAccountPubkey.toString();
+    
+    // Create minimal validator info if not already set
+    if (!currentValidatorInfo && voteAccountInfo.validatorIdentity && voteAccountInfo.validatorIdentity !== 'N/A') {
+        const identity = voteAccountInfo.validatorIdentity;
+        
+        // Try to get activated stake from getVoteAccounts
+        let activatedStake = 0;
+        try {
+            const allVoteAccounts = await connection.getVoteAccounts();
+            const allValidators = [...allVoteAccounts.current, ...allVoteAccounts.delinquent];
+            const voteAcc = allValidators.find(v => v.votePubkey === voteAccountAddress);
+            if (voteAcc) {
+                activatedStake = voteAcc.activatedStake;
+            }
+        } catch (error) {
+            console.warn('Could not fetch activated stake:', error);
+        }
+        
+        currentValidatorInfo = {
+            identity: identity,
+            votePubkey: voteAccountAddress,
+            name: `${identity.substring(0, 4)}...${identity.substring(identity.length - 4)}`,
+            commission: voteAccountInfo.commission,
+            activatedStake: activatedStake
+        };
+    }
+    
+    // Display results with vote account address
+    displayResults(voteAccountInfo, voteAccountAddress);
+    
+    // Update Identity tab with validator info
+    updateIdentityTab(voteAccountInfo);
+    
+    // Save to recent validators if we have validator info
+    if (currentValidatorInfo) {
+        saveRecentValidator(currentValidatorInfo);
+        loadRecentValidators();
+    }
     
     // Show info message for stake accounts loading
     showInfo('Loading your authorized stake accounts...', true);
@@ -228,39 +431,150 @@ async function handleVoteAccountSearch(voteAccountPubkey, currentEpoch) {
     }
 }
 
+// Update Identity tab with validator information
+function updateIdentityTab(voteAccountInfo) {
+    const validator = currentValidatorInfo;
+    
+    // Update identity address
+    const addressEl = document.getElementById('identityAddress');
+    if (addressEl) {
+        addressEl.textContent = voteAccountInfo.validatorIdentity;
+    }
+    
+    // Update active stake
+    const activeStakeEl = document.getElementById('identityActiveStake');
+    if (activeStakeEl) {
+        if (validator && validator.activatedStake) {
+            const stakeInXNT = validator.activatedStake / solanaWeb3.LAMPORTS_PER_SOL;
+            activeStakeEl.textContent = formatBalance(stakeInXNT) + ' XNT';
+        } else {
+            activeStakeEl.textContent = '-';
+        }
+    }
+}
+
 // Handle stake account search (new logic)
 async function handleStakeAccountSearch(stakeAccountPubkey, currentEpoch) {
     showInfo('Loading stake account information...', true);
-    
+
     // Get stake account information
     const stakeAccountInfo = await getStakeAccountInfo(stakeAccountPubkey);
-    
-    // Hide vote account info and display stake account directly
-    hideVoteInfo();
-    
-    // Create a single stake tab for this specific stake account
-    const stakeAccounts = [stakeAccountInfo];
-    currentStakeAccounts = stakeAccounts;
-    
-    // Create stake tabs
-    await createStakeTabs(stakeAccounts, currentEpoch);
-    
-    // Show results section and activate first stake tab
-    showResults();
-    setTimeout(() => {
-        switchTab('stake-0');
-    }, 100);
-    
-    // Check authorities if wallet is connected
-    if (walletConnected) {
-        setTimeout(() => {
-            checkStakeAuthorities('stake-0');
-        }, 200);
+
+    // Extract vote account address from stake delegation
+    let voteAccountAddress = null;
+    if (stakeAccountInfo.data.stake && stakeAccountInfo.data.stake.delegation) {
+        voteAccountAddress = stakeAccountInfo.data.stake.delegation.voter;
     }
-    
-    hideInfo();
-    showInfo(`✅ Found stake account information`);
-    setTimeout(() => hideInfo(), 3000);
+
+    if (voteAccountAddress) {
+        // Load vote account and identity information
+        showInfo('Loading vote account and identity information...', true);
+        
+        const voteAccountPubkey = new solanaWeb3.PublicKey(voteAccountAddress);
+        const voteAccountInfo = await getVoteAccountInfoWithWeb3(voteAccountPubkey);
+        
+        // Create minimal validator info if not already set
+        if (voteAccountInfo.validatorIdentity && voteAccountInfo.validatorIdentity !== 'N/A') {
+            const identity = voteAccountInfo.validatorIdentity;
+            
+            // Try to get activated stake from getVoteAccounts
+            let activatedStake = 0;
+            try {
+                const allVoteAccounts = await connection.getVoteAccounts();
+                const allValidators = [...allVoteAccounts.current, ...allVoteAccounts.delinquent];
+                const voteAcc = allValidators.find(v => v.votePubkey === voteAccountAddress);
+                if (voteAcc) {
+                    activatedStake = voteAcc.activatedStake;
+                }
+            } catch (error) {
+                console.warn('Could not fetch activated stake:', error);
+            }
+            
+            currentValidatorInfo = {
+                identity: identity,
+                votePubkey: voteAccountAddress,
+                name: `${identity.substring(0, 4)}...${identity.substring(identity.length - 4)}`,
+                commission: voteAccountInfo.commission,
+                activatedStake: activatedStake
+            };
+        }
+        
+        // Display vote account results
+        displayResults(voteAccountInfo, voteAccountAddress);
+        
+        // Update Identity tab
+        updateIdentityTab(voteAccountInfo);
+        
+        // Save to recent validators
+        if (currentValidatorInfo) {
+            saveRecentValidator(currentValidatorInfo);
+            loadRecentValidators();
+        }
+        
+        // Load all stake accounts for this vote account (just like when searching by vote/identity)
+        showInfo('Loading all stake accounts for this validator...', true);
+        const stakeAccounts = await getStakeAccountsForVoteAccount(voteAccountPubkey);
+        
+        console.log('=== Before createStakeTabs ===');
+        console.log('Wallet connected:', walletConnected);
+        console.log('Connected address:', connectedWalletAddress);
+        console.log('Authorized stake accounts:', stakeAccounts.length);
+        console.log('Current epoch (early):', currentEpoch);
+        
+        // Store the stake accounts
+        currentStakeAccounts = stakeAccounts;
+        
+        // Create stake tabs with current epoch info
+        await createStakeTabs(stakeAccounts, currentEpoch);
+        
+        // Check withdraw authority match after displaying results
+        if (walletConnected) {
+            setTimeout(() => checkWithdrawAuthorityMatch(), 100);
+        }
+        
+        hideInfo();
+        
+        // Show completion message
+        if (walletConnected) {
+            if (stakeAccounts.length > 0) {
+                showInfo(`✅ Found vote account with ${stakeAccounts.length} stake account(s) you have authority over`);
+                setTimeout(() => hideInfo(), 4000);
+            } else {
+                showInfo(`✅ Found vote account (no stake accounts found that you have authority over)`);
+                setTimeout(() => hideInfo(), 4000);
+            }
+        } else {
+            showInfo(`✅ Found vote account. Connect your wallet to see stake accounts you have authority over.`);
+            setTimeout(() => hideInfo(), 4000);
+        }
+    } else {
+        // No vote account found, hide vote info and only show the single stake account
+        hideVoteInfo();
+        
+        // Create a single stake tab for this specific stake account
+        const stakeAccounts = [stakeAccountInfo];
+        currentStakeAccounts = stakeAccounts;
+
+        // Create stake tabs
+        await createStakeTabs(stakeAccounts, currentEpoch);
+
+        // Show results section and activate first stake tab
+        showResults();
+        setTimeout(() => {
+            switchTab('stake-0');
+        }, 100);
+
+        // Check authorities if wallet is connected
+        if (walletConnected) {
+            setTimeout(() => {
+                checkStakeAuthorities('stake-0');
+            }, 200);
+        }
+
+        hideInfo();
+        showInfo(`✅ Found stake account information`);
+        setTimeout(() => hideInfo(), 3000);
+    }
 }
 
 // Get vote account information using Solana Web3.js
@@ -322,8 +636,16 @@ async function getVoteAccountInfoWithWeb3(voteAccountPubkey) {
 }
 
 // Display results
-function displayResults(voteAccountInfo) {
-    validatorIdentityEl.textContent = voteAccountInfo.validatorIdentity;
+function displayResults(voteAccountInfo, voteAccountAddress = null) {
+    // Display vote account address
+    if (voteAccountAddressEl) {
+        // Use provided address, or fall back to validator info, or search input
+        const voteAccount = voteAccountAddress || 
+                           currentValidatorInfo?.votePubkey || 
+                           voteAccountInput.value.trim();
+        voteAccountAddressEl.textContent = voteAccount;
+    }
+    
     withdrawAuthorityEl.textContent = voteAccountInfo.withdrawAuthority;
     creditsEl.textContent = formatNumber(voteAccountInfo.credits);
     commissionEl.textContent = formatCommission(voteAccountInfo.commission);

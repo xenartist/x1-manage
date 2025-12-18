@@ -6,7 +6,7 @@
     <title>X1 Validator Management</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/base.css?v=20251015">
-    <link rel="stylesheet" href="css/manage_account.css?v=20251202">
+    <link rel="stylesheet" href="css/manage_account.css?v=20251218005">
     <link rel="stylesheet" href="css/new_account.css?v=2025091102">
     <!-- Add Solana Web3.js SDK -->
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
@@ -164,38 +164,51 @@
                 <!-- Page: Manage Account -->
                 <div id="manage-account" class="page active">
                     <div class="page-header">
-                        <h2><i class="fas fa-cogs"></i> Manage Vote & Stake Accounts</h2>
-                        <p>Search and manage your vote accounts and delegated stake accounts</p>
+                        <h2><i class="fas fa-cogs"></i> Manage Validators</h2>
+                        <p>Search validators by address, and manage vote & stake accounts</p>
                     </div>
 
                     <div class="search-section">
                         <div class="input-group">
-                            <label for="voteAccount">Account Address (Vote or Stake):</label>
+                            <label for="voteAccount">Search Validator:</label>
                             <div class="input-wrapper">
-                                <i class="fas fa-key"></i>
+                                <i class="fas fa-search"></i>
                                 <input 
                                     type="text" 
                                     id="voteAccount" 
-                                    placeholder="Enter vote account or stake account address..."
+                                    placeholder="Enter validator identity, vote account, or stake account address..."
                                     class="vote-input"
                                     autocomplete="off"
                                 >
                             </div>
                             <small class="input-help">
                                 <i class="fas fa-info-circle"></i>
-                                You can enter either a vote account address or a stake account address. The system will automatically detect the type and show relevant information.
+                                Enter a validator identity address, vote account address, or stake account address to view details.
                             </small>
                         </div>
 
                         <button id="searchBtn" class="search-btn">
                             <i class="fas fa-search"></i>
-                            Search Account
+                            Search
                         </button>
+                    </div>
+
+                    <!-- Recent Validators Section -->
+                    <div class="recent-validators-section">
+                        <div class="recent-header">
+                            <h4><i class="fas fa-history"></i> Recent Validators</h4>
+                            <button class="clear-recent-btn" onclick="clearAllRecentValidators()" title="Clear all recent validators">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                        <div id="recentValidators" class="recent-validators">
+                            <div class="no-recent">No recent validators. Search for a validator to get started.</div>
+                        </div>
                     </div>
 
                     <div id="resultsSection" class="results-section hidden">
                         <div class="results-header">
-                            <h3><i class="fas fa-info-circle"></i> Vote & Stake Information</h3>
+                            <h3><i class="fas fa-info-circle"></i> Identity, Vote & Stake Information</h3>
                             <button id="refreshStakeInfoBtn" class="refresh-btn" onclick="refreshStakeInfo()" title="Refresh stake information">
                                 <i class="fas fa-sync-alt"></i>
                                 Refresh
@@ -204,6 +217,10 @@
                         
                         <!-- Add tab navigation -->
                         <div class="tab-navigation">
+                            <button class="tab-btn" onclick="switchTab('identity-info')">
+                                <i class="fas fa-id-card"></i>
+                                Identity Account
+                            </button>
                             <button class="tab-btn active" onclick="switchTab('vote-info')">
                                 <i class="fas fa-vote-yea"></i>
                                 Vote Account
@@ -219,6 +236,31 @@
                         
                         <!-- Tab contents -->
                         <div class="tab-contents">
+                            <!-- Identity Info Tab -->
+                            <div id="identity-info" class="tab-content">
+                                <div class="info-grid">
+                                    <div class="info-card">
+                                        <div class="info-header">
+                                            <i class="fas fa-fingerprint"></i>
+                                            <h3>Identity Address</h3>
+                                        </div>
+                                        <div class="info-content">
+                                            <span id="identityAddress" class="address">-</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="info-card">
+                                        <div class="info-header">
+                                            <i class="fas fa-coins"></i>
+                                            <h3>Active Stake</h3>
+                                        </div>
+                                        <div class="info-content">
+                                            <span id="identityActiveStake" class="number">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <!-- Vote Account Info Tab -->
                             <div id="vote-info" class="tab-content active">
                                 <div class="info-grid">
@@ -239,11 +281,11 @@
 
                                     <div class="info-card">
                                         <div class="info-header">
-                                            <i class="fas fa-user-shield"></i>
-                                            <h3>Validator Identity</h3>
+                                            <i class="fas fa-vote-yea"></i>
+                                            <h3>Vote Account</h3>
                                         </div>
                                         <div class="info-content">
-                                            <span id="validatorIdentity" class="address">-</span>
+                                            <span id="voteAccountAddress" class="address">-</span>
                                         </div>
                                     </div>
 
@@ -1391,7 +1433,7 @@
 
     <!-- Scripts -->
     <script src="js/app.js?v=20251015"></script>
-    <script src="js/manage_account.js?v=20251202"></script>
+    <script src="js/manage_account.js?v=20251218010"></script>
     <script src="js/new_account.js?v=20251015"></script>
 </body>
 </html>
