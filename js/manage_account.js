@@ -111,7 +111,10 @@ async function loadValidatorByIdentity(identity) {
         hideAllMessages();
         hideResults();
         removeWithdrawAuthorityMatch();
-        
+
+        // Fill the search input with the identity address
+        voteAccountInput.value = identity;
+
         showInfo('Loading validator information...', true);
         
         // Find vote account for this identity
