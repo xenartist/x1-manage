@@ -6,7 +6,7 @@
     <title>X1 Validator Management</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/base.css?v=20251015">
-    <link rel="stylesheet" href="css/manage_account.css?v=20251218005">
+    <link rel="stylesheet" href="css/manage_account.css?v=20251218010">
     <link rel="stylesheet" href="css/new_account.css?v=2025091102">
     <!-- Add Solana Web3.js SDK -->
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
@@ -170,20 +170,26 @@
 
                     <div class="search-section">
                         <div class="input-group">
-                            <label for="voteAccount">Search Validator:</label>
-                            <div class="input-wrapper">
+                            <label for="voteAccount">
+                                Search Validator:
+                                <span id="validatorLoadStatus" class="validator-load-status">
+                                    <i class="fas fa-spinner fa-spin"></i> Loading validators...
+                                </span>
+                            </label>
+                            <div class="input-wrapper search-wrapper">
                                 <i class="fas fa-search"></i>
-                                <input 
-                                    type="text" 
-                                    id="voteAccount" 
-                                    placeholder="Enter validator identity, vote account, or stake account address..."
+                                <input
+                                    type="text"
+                                    id="voteAccount"
+                                    placeholder="Type validator name or paste address..."
                                     class="vote-input"
                                     autocomplete="off"
                                 >
+                                <div id="searchSuggestions" class="search-suggestions"></div>
                             </div>
                             <small class="input-help">
                                 <i class="fas fa-info-circle"></i>
-                                Enter a validator identity address, vote account address, or stake account address to view details.
+                                Type a validator name for suggestions, or paste identity/vote/stake account address.
                             </small>
                         </div>
 
@@ -217,11 +223,11 @@
                         
                         <!-- Add tab navigation -->
                         <div class="tab-navigation">
-                            <button class="tab-btn" onclick="switchTab('identity-info')">
+                            <button class="tab-btn active" onclick="switchTab('identity-info')">
                                 <i class="fas fa-id-card"></i>
                                 Identity Account
                             </button>
-                            <button class="tab-btn active" onclick="switchTab('vote-info')">
+                            <button class="tab-btn" onclick="switchTab('vote-info')">
                                 <i class="fas fa-vote-yea"></i>
                                 Vote Account
                             </button>
@@ -237,7 +243,25 @@
                         <!-- Tab contents -->
                         <div class="tab-contents">
                             <!-- Identity Info Tab -->
-                            <div id="identity-info" class="tab-content">
+                            <div id="identity-info" class="tab-content active">
+                                <!-- Validator Header Card -->
+                                <div class="validator-header-card">
+                                    <div class="validator-avatar">
+                                        <img id="validatorIcon" src="" alt="" style="display: none;" onerror="this.style.display='none'; document.getElementById('validatorIconFallback').style.display='flex';">
+                                        <div id="validatorIconFallback" class="validator-icon-fallback" style="display: flex;">
+                                            <i class="fas fa-server"></i>
+                                        </div>
+                                    </div>
+                                    <div class="validator-info">
+                                        <h2 id="validatorName" class="validator-name">-</h2>
+                                        <a id="validatorWebsite" href="#" target="_blank" class="validator-website hidden">
+                                            <i class="fas fa-globe"></i>
+                                            <span>Visit Website</span>
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <!-- Validator Details Grid -->
                                 <div class="info-grid">
                                     <div class="info-card">
                                         <div class="info-header">
@@ -248,7 +272,7 @@
                                             <span id="identityAddress" class="address">-</span>
                                         </div>
                                     </div>
-                                    
+
                                     <div class="info-card">
                                         <div class="info-header">
                                             <i class="fas fa-coins"></i>
@@ -258,11 +282,21 @@
                                             <span id="identityActiveStake" class="number">-</span>
                                         </div>
                                     </div>
+
+                                    <div class="info-card validator-details-card hidden" id="validatorDetailsCard">
+                                        <div class="info-header">
+                                            <i class="fas fa-info-circle"></i>
+                                            <h3>Details</h3>
+                                        </div>
+                                        <div class="info-content">
+                                            <span id="validatorDetails" class="validator-details-text">-</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             
                             <!-- Vote Account Info Tab -->
-                            <div id="vote-info" class="tab-content active">
+                            <div id="vote-info" class="tab-content">
                                 <div class="info-grid">
                                     <!-- Vote Account Balance card - moved to first position -->
                                     <div class="info-card balance-card">
@@ -730,9 +764,21 @@
                 </button>
             </div>
             <div class="modal-body">
+                <div class="modal-note" style="margin-bottom: 16px; background: #fff3cd; color: #856404; border-left: 4px solid #ffc107;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p><strong>Important: Vote Account Protection</strong><br>
+                    Vote accounts must keep a minimum balance for rent-exempt to remain active.<br>
+                    The account <strong>cannot be closed</strong> while in use.<br>
+                    <small>Click "Max" to automatically calculate the safe withdrawal amount.</small></p>
+                </div>
+                
                 <div class="form-group">
                     <label for="withdrawAmount">Amount (XNT):</label>
                     <input type="number" id="withdrawAmount" step="0.000000001" placeholder="Enter amount in XNT" autocomplete="off">
+                    <small style="color: #666; display: block; margin-top: 4px;">
+                        <i class="fas fa-lightbulb"></i> 
+                        Click "Max" to automatically calculate safe withdrawal amount
+                    </small>
                 </div>
                 <div class="form-group">
                     <label for="withdrawTo">Withdraw to:</label>
@@ -1433,7 +1479,7 @@
 
     <!-- Scripts -->
     <script src="js/app.js?v=20251015"></script>
-    <script src="js/manage_account.js?v=20251218011"></script>
+    <script src="js/manage_account.js?v=20251218028"></script>
     <script src="js/new_account.js?v=20251015"></script>
 </body>
 </html>

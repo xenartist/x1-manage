@@ -1,10 +1,23 @@
 // Manage Account Page Variables
 let currentStakeAccounts = [];
-let activeTab = 'vote-info';
+let activeTab = 'identity-info';
 let currentValidatorInfo = null; // Current selected validator info
 
 // Global cache for current epoch
 window.currentEpochCache = null;
+
+// Global cache for all validators
+let allValidatorsCache = [];
+let validatorsLoaded = false;
+let searchInputTimeout = null;
+
+// Global cache for rent-exempt balances
+let voteAccountRentExemptCache = null;
+let stakeAccountRentExemptCache = null;
+
+// Default rent-exempt values (fallback)
+const DEFAULT_VOTE_ACCOUNT_RENT_EXEMPT = 0.02685864; // SOL (~3731 bytes)
+const DEFAULT_STAKE_ACCOUNT_RENT_EXEMPT = 0.00228288; // SOL (~200 bytes)
 
 // DOM elements specific to manage account page
 const voteAccountInput = document.getElementById('voteAccount');
@@ -38,15 +51,33 @@ function initializeManageAccount() {
     }
     
     if (voteAccountInput) {
+        // Handle Enter key
         voteAccountInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 handleSearch();
             }
         });
+        
+        // Handle input for real-time search suggestions
+        voteAccountInput.addEventListener('input', handleSearchInput);
+        
+        // Handle focus to show suggestions
+        voteAccountInput.addEventListener('focus', handleSearchInput);
+        
+        // Handle blur to hide suggestions
+        voteAccountInput.addEventListener('blur', () => {
+            setTimeout(() => hideSuggestions(), 200);
+        });
     }
     
     // Load and display recent validators
     loadRecentValidators();
+    
+    // Preload all validators in background
+    preloadAllValidators();
+    
+    // Preload rent-exempt balances in background
+    preloadRentExemptBalances();
     
     console.log('Manage Account page initialized');
 }
@@ -105,6 +136,228 @@ function onWalletUIUpdated(address) {
     }
 }
 
+// Preload rent-exempt balances in background
+async function preloadRentExemptBalances() {
+    try {
+        // Preload vote account rent-exempt
+        voteAccountRentExemptCache = await connection.getMinimumBalanceForRentExemption(3731);
+        console.log(`✅ Vote account rent-exempt: ${voteAccountRentExemptCache / solanaWeb3.LAMPORTS_PER_SOL} XNT`);
+        
+        // Preload stake account rent-exempt
+        stakeAccountRentExemptCache = await connection.getMinimumBalanceForRentExemption(200);
+        console.log(`✅ Stake account rent-exempt: ${stakeAccountRentExemptCache / solanaWeb3.LAMPORTS_PER_SOL} XNT`);
+    } catch (error) {
+        console.warn('Failed to preload rent-exempt balances, will use defaults:', error);
+    }
+}
+
+// Get vote account rent-exempt balance (with cache and fallback)
+async function getVoteAccountRentExempt() {
+    // Return cached value if available
+    if (voteAccountRentExemptCache !== null) {
+        return voteAccountRentExemptCache / solanaWeb3.LAMPORTS_PER_SOL;
+    }
+    
+    // Try to fetch from chain
+    try {
+        voteAccountRentExemptCache = await connection.getMinimumBalanceForRentExemption(3731);
+        return voteAccountRentExemptCache / solanaWeb3.LAMPORTS_PER_SOL;
+    } catch (error) {
+        console.warn('Failed to get vote account rent-exempt, using default:', error);
+        return DEFAULT_VOTE_ACCOUNT_RENT_EXEMPT;
+    }
+}
+
+// Get stake account rent-exempt balance (with cache and fallback)
+async function getStakeAccountRentExempt() {
+    // Return cached value if available
+    if (stakeAccountRentExemptCache !== null) {
+        return stakeAccountRentExemptCache / solanaWeb3.LAMPORTS_PER_SOL;
+    }
+    
+    // Try to fetch from chain
+    try {
+        stakeAccountRentExemptCache = await connection.getMinimumBalanceForRentExemption(200);
+        return stakeAccountRentExemptCache / solanaWeb3.LAMPORTS_PER_SOL;
+    } catch (error) {
+        console.warn('Failed to get stake account rent-exempt, using default:', error);
+        return DEFAULT_STAKE_ACCOUNT_RENT_EXEMPT;
+    }
+}
+
+// Preload all validators in background
+async function preloadAllValidators() {
+    if (validatorsLoaded) return;
+    
+    const statusEl = document.getElementById('validatorLoadStatus');
+    
+    try {
+        console.log('Preloading all validators...');
+        
+        const CONFIG_PROGRAM_ID = new solanaWeb3.PublicKey('Config1111111111111111111111111111111111111');
+        const VALIDATOR_INFO_KEY = new solanaWeb3.PublicKey('Va1idator1nfo111111111111111111111111111111');
+        
+        const accounts = await connection.getParsedProgramAccounts(CONFIG_PROGRAM_ID, {
+            filters: [
+                {
+                    memcmp: {
+                        offset: 1,
+                        bytes: VALIDATOR_INFO_KEY.toBase58(),
+                    },
+                },
+            ],
+        });
+
+        console.log(`Fetched ${accounts.length} validator info accounts`);
+
+        allValidatorsCache = accounts
+            .map((account) => {
+                try {
+                    const parsed = account.account.data.parsed;
+                    if (!parsed || parsed.type !== 'validatorInfo') return null;
+
+                    const configData = parsed.info.configData || {};
+                    const identity = parsed.info.keys.find(k => k.signer)?.pubkey || 
+                                   (parsed.info.keys[1] ? parsed.info.keys[1].pubkey : 'Unknown');
+
+                    return {
+                        infoPubkey: account.pubkey.toBase58(),
+                        identity: identity,
+                        name: configData.name || '',
+                        website: configData.website || '',
+                        iconUrl: configData.iconUrl || '',
+                        details: configData.details || '',
+                        keybaseUsername: configData.keybaseUsername || '',
+                    };
+                } catch (err) {
+                    console.error('Error parsing validator account:', err);
+                    return null;
+                }
+            })
+            .filter(v => v && v.name); // Only keep validators with names
+
+        validatorsLoaded = true;
+        console.log(`✅ Preloaded ${allValidatorsCache.length} validators with names`);
+        
+        if (statusEl) {
+            statusEl.innerHTML = `<i class="fas fa-check-circle"></i> ${allValidatorsCache.length} validators loaded`;
+            statusEl.style.color = '#10b981';
+        }
+        
+    } catch (error) {
+        console.error('Failed to preload validators:', error);
+        if (statusEl) {
+            statusEl.innerHTML = `<i class="fas fa-exclamation-circle"></i> Failed to load validators`;
+            statusEl.style.color = '#ef4444';
+        }
+    }
+}
+
+// Handle search input for real-time suggestions
+function handleSearchInput() {
+    clearTimeout(searchInputTimeout);
+    
+    const input = voteAccountInput.value.trim();
+    
+    // If empty or looks like an address (long and alphanumeric), hide suggestions
+    if (!input || input.length > 40) {
+        hideSuggestions();
+        return;
+    }
+    
+    // Debounce: wait 200ms after user stops typing
+    searchInputTimeout = setTimeout(() => {
+        showSearchSuggestions(input);
+    }, 200);
+}
+
+// Show search suggestions based on input
+function showSearchSuggestions(searchTerm) {
+    if (!validatorsLoaded || !searchTerm) {
+        hideSuggestions();
+        return;
+    }
+    
+    const suggestionsEl = document.getElementById('searchSuggestions');
+    if (!suggestionsEl) {
+        return;
+    }
+    
+    // Filter validators by name (case-insensitive)
+    const lowerSearch = searchTerm.toLowerCase();
+    const matches = allValidatorsCache
+        .filter(v => v.name.toLowerCase().includes(lowerSearch))
+        .slice(0, 10); // Limit to 10 results
+    
+    if (matches.length === 0) {
+        hideSuggestions();
+        return;
+    }
+    
+    // Sort by relevance: exact matches first, then by name length
+    matches.sort((a, b) => {
+        const aName = a.name.toLowerCase();
+        const bName = b.name.toLowerCase();
+        
+        const aExact = aName === lowerSearch;
+        const bExact = bName === lowerSearch;
+        if (aExact && !bExact) return -1;
+        if (!aExact && bExact) return 1;
+        
+        const aStarts = aName.startsWith(lowerSearch);
+        const bStarts = bName.startsWith(lowerSearch);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+        
+        return a.name.length - b.name.length;
+    });
+    
+    // Build suggestions HTML
+    suggestionsEl.innerHTML = matches.map(v => {
+        const iconHtml = v.iconUrl 
+            ? `<img src="${v.iconUrl}" class="suggestion-icon" onerror="this.outerHTML='<div class=\\'suggestion-icon-fallback\\'><i class=\\'fas fa-server\\'></i></div>'">`
+            : `<div class="suggestion-icon-fallback"><i class="fas fa-server"></i></div>`;
+        
+        const websiteHtml = v.website 
+            ? `<span class="suggestion-website" title="${v.website}"><i class="fas fa-globe"></i></span>`
+            : '';
+        
+        return `
+            <div class="suggestion-item" onmousedown="selectValidatorFromSuggestion('${v.identity}')">
+                ${iconHtml}
+                <div class="suggestion-info">
+                    <div class="suggestion-name">${escapeHtml(v.name)}</div>
+                    <div class="suggestion-identity">${v.identity.substring(0, 8)}...${v.identity.substring(v.identity.length - 8)}</div>
+                </div>
+                ${websiteHtml}
+            </div>
+        `;
+    }).join('');
+    
+    suggestionsEl.classList.add('visible');
+}
+
+// Hide suggestions
+function hideSuggestions() {
+    const suggestionsEl = document.getElementById('searchSuggestions');
+    if (suggestionsEl) {
+        suggestionsEl.classList.remove('visible');
+    }
+}
+
+// Select validator from suggestion
+function selectValidatorFromSuggestion(identity) {
+    hideSuggestions();
+    loadValidatorByIdentity(identity);
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // Load validator by identity (called when clicking recent validator or after detecting identity)
 async function loadValidatorByIdentity(identity) {
     try {
@@ -114,6 +367,7 @@ async function loadValidatorByIdentity(identity) {
 
         // Fill the search input with the identity address
         voteAccountInput.value = identity;
+        hideSuggestions();
 
         showInfo('Loading validator information...', true);
         
@@ -126,16 +380,22 @@ async function loadValidatorByIdentity(identity) {
             throw new Error('Vote account not found for this validator identity');
         }
         
-        // Create validator info with basic data
+        // Try to get validator info from cache
+        const cachedValidator = allValidatorsCache.find(v => v.identity === identity);
+        
+        // Create validator info with basic data + cached info
         currentValidatorInfo = {
             identity: identity,
             votePubkey: voteAcc.votePubkey,
-            name: `${identity.substring(0, 4)}...${identity.substring(identity.length - 4)}`,
+            name: cachedValidator?.name || `${identity.substring(0, 4)}...${identity.substring(identity.length - 4)}`,
             commission: voteAcc.commission,
             activatedStake: voteAcc.activatedStake,
-            lastVote: voteAcc.lastVote
+            lastVote: voteAcc.lastVote,
+            iconUrl: cachedValidator?.iconUrl || '',
+            website: cachedValidator?.website || '',
+            details: cachedValidator?.details || ''
         };
-        
+
         // Save to recent validators
         saveRecentValidator(currentValidatorInfo);
         
@@ -175,6 +435,8 @@ function saveRecentValidator(validator) {
             votePubkey: validator.votePubkey,
             name: validator.name,
             iconUrl: validator.iconUrl,
+            website: validator.website,
+            details: validator.details,
             commission: validator.commission,
             timestamp: Date.now()
         });
@@ -375,12 +637,18 @@ async function handleVoteAccountSearch(voteAccountPubkey, currentEpoch) {
             console.warn('Could not fetch activated stake:', error);
         }
         
+        // Try to get validator info from cache
+        const cachedValidator = allValidatorsCache.find(v => v.identity === identity);
+        
         currentValidatorInfo = {
             identity: identity,
             votePubkey: voteAccountAddress,
-            name: `${identity.substring(0, 4)}...${identity.substring(identity.length - 4)}`,
+            name: cachedValidator?.name || `${identity.substring(0, 4)}...${identity.substring(identity.length - 4)}`,
             commission: voteAccountInfo.commission,
-            activatedStake: activatedStake
+            activatedStake: activatedStake,
+            iconUrl: cachedValidator?.iconUrl || '',
+            website: cachedValidator?.website || '',
+            details: cachedValidator?.details || ''
         };
     }
     
@@ -437,21 +705,70 @@ async function handleVoteAccountSearch(voteAccountPubkey, currentEpoch) {
 // Update Identity tab with validator information
 function updateIdentityTab(voteAccountInfo) {
     const validator = currentValidatorInfo;
-    
+
+    // Update validator icon
+    const iconEl = document.getElementById('validatorIcon');
+    const iconFallbackEl = document.getElementById('validatorIconFallback');
+    if (iconEl && iconFallbackEl) {
+        if (validator && validator.iconUrl && validator.iconUrl.trim()) {
+            iconEl.src = validator.iconUrl;
+            iconEl.style.display = 'block';
+            iconFallbackEl.style.display = 'none';
+        } else {
+            iconEl.style.display = 'none';
+            iconFallbackEl.style.display = 'flex';
+        }
+    }
+
+    // Update validator name
+    const nameEl = document.getElementById('validatorName');
+    if (nameEl) {
+        if (validator && validator.name) {
+            nameEl.textContent = validator.name;
+        } else {
+            const identity = voteAccountInfo.validatorIdentity;
+            nameEl.textContent = `${identity.substring(0, 8)}...${identity.substring(identity.length - 8)}`;
+        }
+    }
+
+    // Update validator website
+    const websiteEl = document.getElementById('validatorWebsite');
+    if (websiteEl) {
+        if (validator && validator.website) {
+            websiteEl.href = validator.website;
+            websiteEl.classList.remove('hidden');
+        } else {
+            websiteEl.classList.add('hidden');
+        }
+    }
+
     // Update identity address
     const addressEl = document.getElementById('identityAddress');
     if (addressEl) {
         addressEl.textContent = voteAccountInfo.validatorIdentity;
     }
-    
+
     // Update active stake
     const activeStakeEl = document.getElementById('identityActiveStake');
     if (activeStakeEl) {
         if (validator && validator.activatedStake) {
             const stakeInXNT = validator.activatedStake / solanaWeb3.LAMPORTS_PER_SOL;
-            activeStakeEl.textContent = formatBalance(stakeInXNT) + ' XNT';
+            activeStakeEl.textContent = formatBalance(stakeInXNT);
         } else {
             activeStakeEl.textContent = '-';
+        }
+    }
+
+    // Update validator details
+    const detailsEl = document.getElementById('validatorDetails');
+    const detailsCardEl = document.getElementById('validatorDetailsCard');
+    if (detailsEl && detailsCardEl) {
+        if (validator && validator.details && validator.details.trim()) {
+            detailsEl.textContent = validator.details;
+            detailsCardEl.classList.remove('hidden');
+        } else {
+            detailsEl.textContent = '-';
+            detailsCardEl.classList.add('hidden');
         }
     }
 }
@@ -493,12 +810,18 @@ async function handleStakeAccountSearch(stakeAccountPubkey, currentEpoch) {
                 console.warn('Could not fetch activated stake:', error);
             }
             
+            // Try to get validator info from cache
+            const cachedValidator = allValidatorsCache.find(v => v.identity === identity);
+            
             currentValidatorInfo = {
                 identity: identity,
                 votePubkey: voteAccountAddress,
-                name: `${identity.substring(0, 4)}...${identity.substring(identity.length - 4)}`,
+                name: cachedValidator?.name || `${identity.substring(0, 4)}...${identity.substring(identity.length - 4)}`,
                 commission: voteAccountInfo.commission,
-                activatedStake: activatedStake
+                activatedStake: activatedStake,
+                iconUrl: cachedValidator?.iconUrl || '',
+                website: cachedValidator?.website || '',
+                details: cachedValidator?.details || ''
             };
         }
         
@@ -666,6 +989,8 @@ function displayResults(voteAccountInfo, voteAccountAddress = null) {
 
 function showResults() {
     resultsSection.classList.remove('hidden');
+    // Switch to identity tab by default when showing results
+    switchTab('identity-info');
 }
 
 function hideResults() {
@@ -1613,7 +1938,7 @@ function checkAndShowStakeAuthorityMatch(card, addressEl, authority, type) {
 // ===== 模态框函数 =====
 
 // Show withdraw modal
-function showWithdrawModal() {
+async function showWithdrawModal() {
     // Check if user has withdraw authority
     if (!walletConnected || !connectedWalletAddress) {
         showError('Please connect your wallet first');
@@ -1635,12 +1960,25 @@ function showWithdrawModal() {
         return;
     }
 
+    // Get vote account rent-exempt minimum balance (from cache or chain)
+    const VOTE_ACCOUNT_RENT_EXEMPT = await getVoteAccountRentExempt();
+    const maxSafeWithdraw = currentBalance - VOTE_ACCOUNT_RENT_EXEMPT;
+    
+    if (maxSafeWithdraw <= 0) {
+        showError(
+            `Cannot withdraw from this vote account. ` +
+            `Account balance (${currentBalance.toFixed(6)} XNT) is at or below the rent-exempt minimum (${VOTE_ACCOUNT_RENT_EXEMPT.toFixed(8)} XNT).\n\n` +
+            `Vote accounts must maintain this minimum balance to remain active.`
+        );
+        return;
+    }
+
     // Populate modal with connected wallet address as recipient
     availableBalanceEl.textContent = currentBalance.toFixed(4);
     withdrawToInput.value = connectedWalletAddress; // Use connected wallet address
     withdrawAmountInput.value = '';
     
-    // Add max button
+    // Add max button with rent-exempt consideration
     addMaxAmountButton();
     
     // Show modal
@@ -1664,10 +2002,13 @@ function addMaxAmountButton() {
     maxBtn.type = 'button';
     maxBtn.className = 'max-btn';
     maxBtn.textContent = 'Max';
-    maxBtn.onclick = () => {
+    maxBtn.onclick = async () => {
         const availableBalance = parseFloat(availableBalanceEl.textContent);
-        const maxWithdrawAmount = Math.floor(availableBalance); // only allow integer part of available balance to be withdrawn
-        withdrawAmountInput.value = maxWithdrawAmount;
+        // Get vote account rent-exempt minimum balance (from cache or chain)
+        const VOTE_ACCOUNT_RENT_EXEMPT = await getVoteAccountRentExempt();
+        const maxSafeWithdraw = availableBalance - VOTE_ACCOUNT_RENT_EXEMPT;
+        const maxWithdrawAmount = Math.floor(maxSafeWithdraw); // only allow integer part, and keep rent-exempt
+        withdrawAmountInput.value = Math.max(0, maxWithdrawAmount);
     };
     
     formGroup.style.position = 'relative';
@@ -1681,11 +2022,15 @@ function hideWithdrawModal() {
 }
 
 // show stake withdraw modal
-function showStakeWithdrawModal(stakeAccountAddress, availableBalance) {
+async function showStakeWithdrawModal(stakeAccountAddress, availableBalance) {
     const existingModal = document.getElementById('stakeWithdrawModal');
     if (existingModal) {
         existingModal.remove();
     }
+    
+    // Get stake account rent-exempt minimum balance (from cache or chain)
+    const STAKE_ACCOUNT_RENT_EXEMPT = await getStakeAccountRentExempt();
+    const maxWithdrawable = availableBalance - STAKE_ACCOUNT_RENT_EXEMPT;
     
     const modal = document.createElement('div');
     modal.id = 'stakeWithdrawModal';
@@ -1703,18 +2048,28 @@ function showStakeWithdrawModal(stakeAccountAddress, availableBalance) {
                 <div class="modal-note" style="margin-bottom: 16px; background: #e3f2fd; color: #1565c0; border-left: 4px solid #2196f3;">
                     <i class="fas fa-info-circle"></i>
                     <p><strong>Stake Account Withdrawal</strong><br>
-                    You can withdraw the full balance from this inactive stake account.</p>
+                    For partial withdrawal, the account must keep at least ${STAKE_ACCOUNT_RENT_EXEMPT} XNT for rent-exempt.<br>
+                    To withdraw all funds, enter the full balance to close the account.</p>
                 </div>
                 
                 <div class="stake-account-info" style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin: 12px 0;">
                     <strong>Stake Account:</strong><br>
                     <span style="font-family: monospace; color: #666; word-break: break-all;">${stakeAccountAddress}</span><br><br>
-                    <strong>Available Balance:</strong> ${availableBalance} XNT
+                    <strong>Total Balance:</strong> ${availableBalance.toFixed(6)} XNT<br>
+                    <strong>Max Withdrawable (Partial):</strong> ${maxWithdrawable > 0 ? maxWithdrawable.toFixed(6) : '0.000000'} XNT<br>
+                    <small style="color: #666;">Or withdraw all ${availableBalance.toFixed(6)} XNT to close account</small>
                 </div>
                 
                 <div class="form-group">
                     <label for="stakeWithdrawAmount">Amount (XNT):</label>
-                    <input type="number" id="stakeWithdrawAmount" step="0.000000001" placeholder="Enter amount in XNT" value="${availableBalance}" autocomplete="off">
+                    <div style="position: relative;">
+                        <input type="number" id="stakeWithdrawAmount" step="0.000000001" placeholder="Enter amount in XNT" value="${availableBalance}" autocomplete="off">
+                        <button type="button" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); padding: 4px 8px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;" onclick="document.getElementById('stakeWithdrawAmount').value = ${maxWithdrawable.toFixed(6)}">Max Partial</button>
+                    </div>
+                    <small style="color: #666; display: block; margin-top: 4px;">
+                        <i class="fas fa-lightbulb"></i> 
+                        Enter full balance to close account, or less to keep account open
+                    </small>
                 </div>
                 
                 <div class="form-group">
@@ -2168,10 +2523,29 @@ async function executeWithdraw() {
     }
 
     const availableBalance = parseFloat(availableBalanceEl.textContent);
-    const maxAllowedWithdraw = Math.floor(availableBalance); // only allow integer part of available balance to be withdrawn
+
+    // Get vote account rent-exempt minimum balance (from cache or chain)
+    const VOTE_ACCOUNT_RENT_EXEMPT = await getVoteAccountRentExempt();
+
+    // Calculate maximum safe withdrawal amount
+    const maxSafeWithdraw = availableBalance - VOTE_ACCOUNT_RENT_EXEMPT;
+    const maxAllowedWithdraw = Math.floor(maxSafeWithdraw); // only allow integer part
+    
+    if (maxAllowedWithdraw <= 0) {
+        showError(
+            `Cannot withdraw from this vote account. ` +
+            `Account balance (${availableBalance.toFixed(6)} XNT) is at or below the rent-exempt minimum (${VOTE_ACCOUNT_RENT_EXEMPT.toFixed(8)} XNT).\n\n` +
+            `Vote accounts must maintain this minimum balance to remain active.`
+        );
+        return;
+    }
     
     if (amount > maxAllowedWithdraw) {
-        showError(`Withdrawal amount exceeds maximum allowed: ${maxAllowedWithdraw} XNT (only integer part of available balance can be withdrawn)`);
+        showError(
+            `Withdrawal amount exceeds maximum allowed: ${maxAllowedWithdraw} XNT\n\n` +
+            `Vote accounts must keep at least ${VOTE_ACCOUNT_RENT_EXEMPT.toFixed(8)} XNT for rent-exempt. ` +
+            `Available balance: ${availableBalance.toFixed(6)} XNT`
+        );
         return;
     }
 
@@ -2471,21 +2845,58 @@ async function executeStakeWithdraw(stakeAccountAddress) {
     
     hideStakeWithdrawModal();
     
-    // Confirm the operation
-    if (!confirm(`Are you sure you want to withdraw ${amount} XNT from stake account:\n\n${stakeAccountAddress}\n\nTo: ${recipient}`)) {
-        return;
-    }
-    
-    showInfo('Creating stake withdraw transaction...', true);
-    
     try {
-        // Create public keys
+        // Get stake account info to check total balance
         const stakeAccountPubkey = new solanaWeb3.PublicKey(stakeAccountAddress);
+        const stakeAccountInfo = await connection.getAccountInfo(stakeAccountPubkey);
+        
+        if (!stakeAccountInfo) {
+            showError('Stake account not found');
+            return;
+        }
+        
+        const totalLamports = stakeAccountInfo.lamports;
+        const totalBalance = totalLamports / solanaWeb3.LAMPORTS_PER_SOL;
+        const requestedLamports = Math.floor(amount * solanaWeb3.LAMPORTS_PER_SOL);
+        
+        // Get stake account rent-exempt minimum balance (from cache or chain)
+        const STAKE_ACCOUNT_RENT_EXEMPT = await getStakeAccountRentExempt();
+        
+        // Check if user is trying to withdraw all (within a small tolerance)
+        const isWithdrawAll = Math.abs(amount - totalBalance) < 0.000001;
+        
+        // For partial withdrawal, check if remaining balance would be below rent-exempt
+        if (!isWithdrawAll) {
+            const remainingBalance = totalBalance - amount;
+            
+            if (remainingBalance < STAKE_ACCOUNT_RENT_EXEMPT && remainingBalance > 0.000001) {
+                // User is trying to withdraw too much but not all
+                const maxWithdrawable = totalBalance - STAKE_ACCOUNT_RENT_EXEMPT;
+                showError(
+                    `Cannot withdraw ${amount.toFixed(6)} XNT. ` +
+                    `Account must keep at least ${STAKE_ACCOUNT_RENT_EXEMPT.toFixed(8)} XNT for rent-exempt.\n\n` +
+                    `Maximum withdrawable: ${maxWithdrawable.toFixed(6)} XNT\n` +
+                    `Or withdraw ALL (${totalBalance.toFixed(6)} XNT) to close the account.`
+                );
+                return;
+            }
+        }
+        
+        // Confirm the operation
+        let confirmMessage = `Are you sure you want to withdraw ${amount} XNT from stake account:\n\n${stakeAccountAddress}\n\nTo: ${recipient}`;
+        if (isWithdrawAll) {
+            confirmMessage += '\n\n⚠️ This will withdraw ALL funds and CLOSE the stake account permanently.';
+        }
+        
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+        
+        showInfo('Creating stake withdraw transaction...', true);
+        
+        // Create public keys
         const withdrawAuthorityPubkey = new solanaWeb3.PublicKey(connectedWalletAddress);
         const recipientPubkey = new solanaWeb3.PublicKey(recipient);
-        
-        // Convert XNT to lamports
-        const lamports = Math.floor(amount * solanaWeb3.LAMPORTS_PER_SOL);
         
         // Get latest blockhash
         const { blockhash } = await connection.getLatestBlockhash('finalized');
@@ -2496,23 +2907,42 @@ async function executeStakeWithdraw(stakeAccountAddress) {
             feePayer: withdrawAuthorityPubkey,
         });
         
-        // Create withdraw instruction using StakeProgram
-        const withdrawInstruction = solanaWeb3.StakeProgram.withdraw({
-            stakePubkey: stakeAccountPubkey,
-            authorizedPubkey: withdrawAuthorityPubkey,
-            toPubkey: recipientPubkey,
-            lamports: lamports,
-        });
+        if (isWithdrawAll) {
+            // Withdraw ALL lamports (including rent-exempt balance) - this will close the account
+            console.log('Withdrawing ALL and closing account:', {
+                stakeAccount: stakeAccountPubkey.toString(),
+                totalLamports: totalLamports,
+                withdrawingAll: true
+            });
+            
+            const withdrawInstruction = solanaWeb3.StakeProgram.withdraw({
+                stakePubkey: stakeAccountPubkey,
+                authorizedPubkey: withdrawAuthorityPubkey,
+                toPubkey: recipientPubkey,
+                lamports: totalLamports, // Withdraw ALL lamports to close account
+            });
+            
+            transaction.add(withdrawInstruction);
+        } else {
+            // Partial withdrawal - keep account open
+            console.log('Partial withdrawal:', {
+                stakeAccount: stakeAccountPubkey.toString(),
+                requestedLamports: requestedLamports,
+                totalLamports: totalLamports,
+                remaining: totalLamports - requestedLamports
+            });
+            
+            const withdrawInstruction = solanaWeb3.StakeProgram.withdraw({
+                stakePubkey: stakeAccountPubkey,
+                authorizedPubkey: withdrawAuthorityPubkey,
+                toPubkey: recipientPubkey,
+                lamports: requestedLamports,
+            });
+            
+            transaction.add(withdrawInstruction);
+        }
         
-        transaction.add(withdrawInstruction);
-        
-        console.log('Stake withdraw transaction created:', {
-            stakeAccount: stakeAccountPubkey.toString(),
-            withdrawAuthority: withdrawAuthorityPubkey.toString(),
-            recipient: recipientPubkey.toString(),
-            amount: amount,
-            lamports: lamports
-        });
+        console.log('Stake withdraw transaction created');
         
         // Sign and send transaction
         const signedTransaction = await wallet.signTransaction(transaction);
@@ -2528,7 +2958,20 @@ async function executeStakeWithdraw(stakeAccountAddress) {
         await connection.confirmTransaction(signature, 'confirmed');
         
         const explorerUrl = getExplorerUrl(signature);
-        showSuccess(`✅ Stake withdrawal successful! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+        if (isWithdrawAll) {
+            showSuccess(`✅ Stake withdrawal successful! Account closed. <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+        } else {
+            showSuccess(`✅ Stake withdrawal successful! <a href="${explorerUrl}" target="_blank">${explorerUrl}</a>`);
+        }
+        
+        // Refresh the stake accounts display after a short delay
+        setTimeout(async () => {
+            const currentVoteAccount = document.getElementById('voteAccount').value.trim();
+            if (currentVoteAccount) {
+                showInfo('Refreshing stake accounts...', true);
+                await handleSearch();
+            }
+        }, 2000);
         
     } catch (error) {
         console.error('Failed to withdraw from stake account:', error);
