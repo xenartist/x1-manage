@@ -2571,8 +2571,13 @@ async function executeWithdraw() {
         // Convert XNT to lamports
         const lamports = Math.floor(amount * solanaWeb3.LAMPORTS_PER_SOL);
         
-        // Get current vote account public key
-        const voteAccountStr = voteAccountInput.value.trim();
+        // ✅ Get vote account address from the Vote Account tab display element
+        const voteAccountAddressEl = document.getElementById('voteAccountAddress');
+        const voteAccountStr = voteAccountAddressEl ? voteAccountAddressEl.textContent.trim() : '';
+        
+        if (!voteAccountStr || voteAccountStr === '-') {
+            throw new Error('Vote account address not found. Please search for a vote account first.');
+        }
         
         // Validate and create PublicKeys with error handling
         let voteAccountPubkey, recipientPubkey, withdrawAuthorityPubkey;
