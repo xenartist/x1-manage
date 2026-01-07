@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>X1 Validator Management</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="css/base.css?v=20251015">
+    <link rel="stylesheet" href="css/base.css?v=20250107002">
     <link rel="stylesheet" href="css/manage_account.css?v=20251218010">
     <link rel="stylesheet" href="css/new_account.css?v=2025091102">
     <!-- Add Solana Web3.js SDK -->
@@ -87,7 +87,7 @@
                 <div class="wallet-section">
                     <button id="connectWallet" class="wallet-btn">
                         <i class="fas fa-wallet"></i>
-                        Connect Backpack Wallet
+                        Connect Wallet
                     </button>
                     <div id="walletInfo" class="wallet-info hidden">
                         <div class="wallet-connected">
@@ -358,16 +358,16 @@
                             <!-- Merge Stake Tab -->
                             <div id="merge-stake" class="tab-content">
                                 <div class="merge-stake-container">
-                                    <!-- Wallet Connection Required Notice -->
-                                    <div id="mergeStakeWalletNotice" class="wallet-notice">
-                                        <div class="notice-icon">
-                                            <i class="fas fa-wallet"></i>
-                                        </div>
-                                        <div class="notice-content">
-                                            <h4>Connect Wallet Required</h4>
-                                            <p>Please connect your Backpack wallet to view and merge your stake accounts.</p>
-                                        </div>
-                                    </div>
+                    <!-- Wallet Connection Required Notice -->
+                    <div id="mergeStakeWalletNotice" class="wallet-notice">
+                        <div class="notice-icon">
+                            <i class="fas fa-wallet"></i>
+                        </div>
+                        <div class="notice-content">
+                            <h4>Connect Wallet Required</h4>
+                            <p>Please connect your wallet to view and merge your stake accounts.</p>
+                        </div>
+                    </div>
 
                                     <!-- Merge Stake Content (shown when wallet connected) -->
                                     <div id="mergeStakeContent" class="merge-stake-content hidden">
@@ -1477,8 +1477,51 @@
         </div>
     </div>
 
+    <!-- Wallet Selection Modal -->
+    <div id="walletSelectionModal" class="modal hidden">
+        <div class="modal-content wallet-selection-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-wallet"></i> Select Wallet</h3>
+                <button class="modal-close" onclick="hideWalletSelectionModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="wallet-options">
+                    <!-- X1 Wallet Option -->
+                    <div class="wallet-option" id="x1WalletOption" onclick="connectWalletByType('x1')">
+                        <div class="wallet-icon x1-wallet-icon">
+                            <img src="https://x1logos.s3.us-east-1.amazonaws.com/128+-+wallet.png" alt="X1 Wallet" />
+                        </div>
+                        <div class="wallet-info-text">
+                            <h4>X1 Wallet</h4>
+                            <p id="x1WalletStatus" class="wallet-status">Checking...</p>
+                        </div>
+                        <div class="wallet-arrow">
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                    </div>
+
+                    <!-- Backpack Wallet Option -->
+                    <div class="wallet-option" id="backpackWalletOption" onclick="connectWalletByType('backpack')">
+                        <div class="wallet-icon backpack-wallet-icon">
+                            <img src="https://raw.githubusercontent.com/coral-xyz/backpack/master/assets/backpack.png" alt="Backpack Wallet" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg viewBox=%220 0 48 48%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Crect width=%2248%22 height=%2248%22 rx=%2212%22 fill=%22%23E33E3F%22/%3E%3Cpath d=%22M18 14C18 12.8954 18.8954 12 20 12H28C29.1046 12 30 12.8954 30 14V16H32C33.1046 16 34 16.8954 34 18V34C34 35.1046 33.1046 36 32 36H16C14.8954 36 14 35.1046 14 34V18C14 16.8954 14.8954 16 16 16H18V14Z%22 fill=%22white%22/%3E%3Crect x=%2218%22 y=%2222%22 width=%2212%22 height=%228%22 rx=%221%22 fill=%22%23E33E3F%22/%3E%3Ccircle cx=%2224%22 cy=%2226%22 r=%221.5%22 fill=%22white%22/%3E%3C/svg%3E';" />
+                        </div>
+                        <div class="wallet-info-text">
+                            <h4>Backpack Wallet</h4>
+                            <p id="backpackWalletStatus" class="wallet-status">Checking...</p>
+                        </div>
+                        <div class="wallet-arrow">
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
-    <script src="js/app.js?v=20251015"></script>
+    <script src="js/app.js?v=20250107001"></script>
     <script src="js/manage_account.js?v=20251218031"></script>
     <script src="js/new_account.js?v=20251015"></script>
 </body>

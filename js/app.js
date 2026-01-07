@@ -4,8 +4,12 @@ let currentRpcEndpoint = 'https://rpc.mainnet.x1.xyz';
 let wallet = null;
 let walletConnected = false;
 let connectedWalletAddress = null;
-let walletDetected = false;
+let walletType = null; // 'x1' or 'backpack'
 let walletBalance = 0;
+
+// Wallet detection state
+let x1WalletDetected = false;
+let backpackWalletDetected = false;
 
 // DOM elements
 const connectWalletBtn = document.getElementById('connectWallet');
@@ -32,14 +36,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Listen for window load as backup
 window.addEventListener('load', function() {
-    if (!walletDetected) {
-        console.log('Window loaded, checking for wallets as backup...');
-        setTimeout(() => {
-            if (!walletDetected) {
-                checkBackpackWallet();
-            }
-        }, 1000);
-    }
+    console.log('Window loaded, checking for wallets...');
+    setTimeout(() => {
+        checkAvailableWallets();
+    }, 1000);
 });
 
 // Initialize the application
@@ -50,14 +50,10 @@ function initializeApp() {
     // Initialize navigation
     initializeNavigation();
     
-    // Single wallet check with appropriate delay
+    // Check for available wallets (no auto-connect)
     setTimeout(() => {
-        checkBackpackWallet().then(detected => {
-            if (detected) {
-                setTimeout(connectWallet, 500);
-            }
-        });
-    }, 1000);
+        checkAvailableWallets();
+    }, 500);
     
     console.log('X1 Validator Management Suite initialized');
 }
@@ -120,269 +116,219 @@ function switchPage(pageId) {
     }
 }
 
-// Wallet Management
-function checkBackpackWallet() {
-    if (walletDetected) {
-        console.log('Wallet already detected, skipping...');
-        return Promise.resolve(true); // Indicate success
-    }
-
-    console.log('Checking for Backpack wallet...');
+// Check for available wallets
+function checkAvailableWallets() {
+    console.log('Checking for available wallets...');
     
-    // check Backpack wallet
-    if (window.backpack?.isBackpack) {
-        wallet = window.backpack.solana; // use Solana provider
-        walletDetected = true;
-        console.log('✅ Backpack wallet detected successfully');
-        
-        // add wallet event listener
-        if (wallet) {
-            wallet.on('connect', () => {
-                console.log('Wallet connected event fired');
-                if (wallet.publicKey) {
-                    walletConnected = true;
-                    connectedWalletAddress = wallet.publicKey.toString();
-                    updateWalletUI();
-                    console.log('✅ Wallet connected via event:', connectedWalletAddress);
-                }
-            });
-            
-            wallet.on('disconnect', () => {
-                console.log('Wallet disconnected event fired');
-                walletConnected = false;
-                connectedWalletAddress = null;
-                updateWalletUI();
-                // Notify manage account page about wallet disconnect
-                if (typeof onWalletDisconnected === 'function') {
-                    onWalletDisconnected();
-                }
-                // Notify new account page about wallet disconnect
-                if (typeof onWalletDisconnectedNewAccount === 'function') {
-                    onWalletDisconnectedNewAccount();
-                }
-            });
-        }
-        
-        connectWalletBtn.innerHTML = '<i class="fas fa-wallet"></i> Connect Backpack Wallet';
-        connectWalletBtn.disabled = false;
-        connectWalletBtn.onclick = connectWallet;
-        
-        // try auto-connect with delay to allow wallet to fully load
-        setTimeout(() => {
-            tryAutoConnect();
-        }, 1000);
-        return Promise.resolve(true); // Indicate success
+    // Check X1 Wallet - provider is window.x1
+    if (window.x1) {
+        x1WalletDetected = true;
+        console.log('✅ X1 Wallet detected', window.x1);
     } else {
-        console.log('❌ Backpack wallet not found');
-        
-        // Longer retry with multiple attempts
-        let detectRetries = 0;
-        const maxDetectRetries = 5;
-        const detectInterval = setInterval(() => {
-            detectRetries++;
-            console.log(`Retrying Backpack detection... attempt ${detectRetries}/${maxDetectRetries}`);
-            
-            if (window.backpack?.isBackpack) {
-                console.log('Backpack wallet found on retry!');
-                clearInterval(detectInterval);
-                checkBackpackWallet();
-            } else if (detectRetries >= maxDetectRetries) {
-                console.log('Max detection retries reached');
-                clearInterval(detectInterval);
-                showWalletNotFound();
-                return Promise.resolve(false); // Indicate failure
-            }
-        }, 2000); // Check every 2 seconds
-        return new Promise(resolve => {
-            setTimeout(() => {
-                clearInterval(detectInterval);
-                resolve(false); // Indicate failure after retries
-            }, maxDetectRetries * 2000 + 1000); // Total time for retries + final check
-        });
+        x1WalletDetected = false;
+        console.log('❌ X1 Wallet not detected');
     }
-}
-
-// Show wallet not found state
-function showWalletNotFound() {
-    console.log('Backpack wallet not detected after retries');
-    connectWalletBtn.innerHTML = '<i class="fas fa-download"></i> Install Backpack Wallet';
-    connectWalletBtn.disabled = false;
-    connectWalletBtn.onclick = () => {
-        if (confirm('Backpack wallet not detected. Would you like to install it?')) {
-            window.open('https://www.backpack.app/', '_blank');
-        }
-    };
-}
-
-// Improve auto-connect with better error handling
-async function tryAutoConnect() {
-    if (!wallet) return;
     
-    try {
-        console.log('Attempting auto-connect...');
-        
-        // Check if wallet is ready
-        if (wallet.isConnected && wallet.publicKey) {
-            walletConnected = true;
-            connectedWalletAddress = wallet.publicKey.toString();
-            updateWalletUI();
-            console.log('✅ Wallet already connected:', connectedWalletAddress);
-            return;
-        }
-        
-        // Try trusted connection with timeout
-        const autoConnectPromise = wallet.connect({ onlyIfTrusted: true });
-        const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Auto-connect timeout')), 8000)
-        );
-        
-        const response = await Promise.race([autoConnectPromise, timeoutPromise]);
-        
-        if (response && response.publicKey) {
-            walletConnected = true;
-            connectedWalletAddress = response.publicKey.toString();
-            updateWalletUI();
-            console.log('✅ Auto-connected to Backpack:', connectedWalletAddress);
-        } else {
-            console.log('Auto-connect: No trusted connection found');
-        }
-    } catch (error) {
-        console.log('Auto-connect failed (this is normal):', error.message);
+    // Check Backpack Wallet - provider is window.backpack
+    if (window.backpack?.isBackpack) {
+        backpackWalletDetected = true;
+        console.log('✅ Backpack Wallet detected');
+    } else {
+        backpackWalletDetected = false;
+        console.log('❌ Backpack Wallet not detected');
+    }
+    
+    // Update connect button state
+    if (x1WalletDetected || backpackWalletDetected) {
+        connectWalletBtn.disabled = false;
+        console.log('At least one wallet detected');
+    } else {
+        connectWalletBtn.disabled = true;
+        connectWalletBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> No Wallet Detected';
     }
 }
 
-// Connect to Backpack wallet
-async function connectWallet() {
-    if (!wallet) {
-        showError('Backpack wallet not found. Please refresh the page.');
+// Setup wallet event listeners
+function setupWalletEvents(walletProvider, type) {
+    if (!walletProvider) return;
+    
+    walletProvider.on('connect', () => {
+        console.log(`${type} wallet connected event fired`);
+        if (walletProvider.publicKey) {
+            walletConnected = true;
+            connectedWalletAddress = walletProvider.publicKey.toString();
+            walletType = type;
+            updateWalletUI();
+            console.log(`✅ ${type} wallet connected:`, connectedWalletAddress);
+        }
+    });
+    
+    walletProvider.on('disconnect', () => {
+        console.log(`${type} wallet disconnected event fired`);
+        walletConnected = false;
+        connectedWalletAddress = null;
+        walletType = null;
+        updateWalletUI();
+        
+        // Notify manage account page about wallet disconnect
+        if (typeof onWalletDisconnected === 'function') {
+            onWalletDisconnected();
+        }
+        // Notify new account page about wallet disconnect
+        if (typeof onWalletDisconnectedNewAccount === 'function') {
+            onWalletDisconnectedNewAccount();
+        }
+    });
+}
+
+// Show wallet selection modal
+function connectWallet() {
+    showWalletSelectionModal();
+}
+
+// Show wallet selection modal
+function showWalletSelectionModal() {
+    const modal = document.getElementById('walletSelectionModal');
+    const x1Status = document.getElementById('x1WalletStatus');
+    const backpackStatus = document.getElementById('backpackWalletStatus');
+    const x1Option = document.getElementById('x1WalletOption');
+    const backpackOption = document.getElementById('backpackWalletOption');
+    
+    if (!modal) return;
+    
+    // Update wallet status
+    if (x1WalletDetected) {
+        x1Status.textContent = 'Ready to connect';
+        x1Status.className = 'wallet-status detected';
+        x1Option.classList.remove('disabled');
+    } else {
+        x1Status.textContent = 'Not detected';
+        x1Status.className = 'wallet-status not-detected';
+        x1Option.classList.add('disabled');
+        x1Option.onclick = () => {
+            if (confirm('X1 Wallet not detected. Would you like to install it?')) {
+                window.open('https://x1wallet.com/', '_blank');
+            }
+        };
+    }
+    
+    if (backpackWalletDetected) {
+        backpackStatus.textContent = 'Ready to connect';
+        backpackStatus.className = 'wallet-status detected';
+        backpackOption.classList.remove('disabled');
+    } else {
+        backpackStatus.textContent = 'Not detected';
+        backpackStatus.className = 'wallet-status not-detected';
+        backpackOption.classList.add('disabled');
+        backpackOption.onclick = () => {
+            if (confirm('Backpack Wallet not detected. Would you like to install it?')) {
+                window.open('https://www.backpack.app/', '_blank');
+            }
+        };
+    }
+    
+    modal.classList.remove('hidden');
+}
+
+// Hide wallet selection modal
+function hideWalletSelectionModal() {
+    const modal = document.getElementById('walletSelectionModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+// Connect to specific wallet type
+async function connectWalletByType(type) {
+    if (type === 'x1' && !x1WalletDetected) {
         return;
     }
-
+    if (type === 'backpack' && !backpackWalletDetected) {
+        return;
+    }
+    
+    hideWalletSelectionModal();
+    
     try {
         connectWalletBtn.disabled = true;
         connectWalletBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connecting...';
         
-        console.log('Connecting to Backpack wallet...');
+        let walletProvider;
+        let walletName;
         
-        // check if wallet is already connected
-        if (wallet.connected) {
-            console.log('Wallet already connected, getting public key...');
-            const publicKey = wallet.publicKey;
-            if (publicKey) {
-                walletConnected = true;
-                connectedWalletAddress = publicKey.toString();
-                updateWalletUI();
-                console.log('✅ Backpack wallet already connected:', connectedWalletAddress);
-                
-                // balance updates logic
-                startBalanceUpdates();
-                
-                // Notify manage account page about wallet connection
-                if (typeof onWalletConnected === 'function') {
-                    onWalletConnected();
-                }
-                // Notify new account page about wallet connection
-                if (typeof onWalletConnectedNewAccount === 'function') {
-                    onWalletConnectedNewAccount();
-                }
-                return;
-            }
+        if (type === 'x1') {
+            // X1 Wallet provider is window.x1
+            walletProvider = window.x1;
+            walletName = 'X1 Wallet';
+        } else if (type === 'backpack') {
+            // Backpack Wallet provider is window.backpack
+            walletProvider = window.backpack;
+            walletName = 'Backpack Wallet';
         }
         
-        // Enhanced connection with retry mechanism
-        let retryCount = 0;
-        const maxRetries = 3;
-        const retryDelay = 2000; // 2 seconds between retries
+        if (!walletProvider) {
+            throw new Error(`${walletName} provider not found`);
+        }
         
-        while (retryCount < maxRetries) {
-            try {
-                // Update UI to show retry status
-                if (retryCount > 0) {
-                    connectWalletBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Retrying... (${retryCount}/${maxRetries})`;
-                    console.log(`Retry attempt ${retryCount}/${maxRetries}`);
-                }
-                
-                // Check if wallet is ready before connecting
-                if (!wallet.isConnected && wallet.publicKey) {
-                    console.log('Wallet appears to be in loading state, waiting...');
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                }
-                
-                // try connect wallet with longer timeout
-                const connectPromise = wallet.connect();
-                const timeoutPromise = new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Connection timeout')), 15000) // 15 second timeout
-                );
-                
-                const response = await Promise.race([connectPromise, timeoutPromise]);
-                console.log('Connection response:', response);
-                
-                if (response && response.publicKey) {
-                    walletConnected = true;
-                    connectedWalletAddress = response.publicKey.toString();
-                    updateWalletUI();
-                    console.log('✅ Backpack wallet connected:', connectedWalletAddress);
-                    
-                    // balance updates logic
-                    startBalanceUpdates();
-                    
-                    // Notify manage account page about wallet connection
-                    if (typeof onWalletConnected === 'function') {
-                        onWalletConnected();
-                    }
-                    // Notify new account page about wallet connection
-                    if (typeof onWalletConnectedNewAccount === 'function') {
-                        onWalletConnectedNewAccount();
-                    }
-                    return; // Success, exit retry loop
-                } else {
-                    throw new Error('No public key returned from wallet');
-                }
-                
-            } catch (retryError) {
-                retryCount++;
-                console.log(`Connection attempt ${retryCount} failed:`, retryError.message);
-                
-                // Handle specific errors that might indicate wallet is still loading
-                if (retryError.message.includes('Plugin Closed') || 
-                    retryError.message.includes('Connection timeout') ||
-                    retryError.message.includes('wallet not ready')) {
-                    
-                    if (retryCount < maxRetries) {
-                        console.log(`Wallet appears to be loading, waiting ${retryDelay}ms before retry...`);
-                        connectWalletBtn.innerHTML = `<i class="fas fa-clock"></i> Wallet loading, retrying in ${retryDelay/1000}s...`;
-                        await new Promise(resolve => setTimeout(resolve, retryDelay));
-                        continue; // Try again
-                    }
-                }
-                
-                // If this is the last retry or a non-recoverable error, throw it
-                if (retryCount >= maxRetries) {
-                    throw retryError;
-                }
-            }
+        console.log(`Connecting to ${walletName}...`, walletProvider);
+        
+        // Setup event listeners for this wallet
+        setupWalletEvents(walletProvider, type);
+        
+        // Check if already connected
+        if (walletProvider.connected && walletProvider.publicKey) {
+            console.log(`${walletName} already connected`);
+            walletConnected = true;
+            connectedWalletAddress = walletProvider.publicKey.toString();
+            walletType = type;
+            wallet = walletProvider;
+            updateWalletUI();
+            
+            startBalanceUpdates();
+            notifyWalletConnection();
+            return;
+        }
+        
+        // Connect wallet
+        const response = await walletProvider.connect();
+        
+        if (response && response.publicKey) {
+            walletConnected = true;
+            connectedWalletAddress = response.publicKey.toString();
+            walletType = type;
+            wallet = walletProvider;
+            updateWalletUI();
+            console.log(`✅ ${walletName} connected:`, connectedWalletAddress);
+            
+            startBalanceUpdates();
+            notifyWalletConnection();
+        } else {
+            throw new Error('No public key returned from wallet');
         }
         
     } catch (error) {
-        console.error('❌ Failed to connect wallet after retries:', error);
+        console.error('❌ Failed to connect wallet:', error);
         
-        // more detailed error handling
         if (error.message.includes('User rejected') || error.message.includes('rejected')) {
-            showError('Connection rejected by user');
-        } else if (error.message.includes('Plugin Closed')) {
-            showError('Wallet plugin closed during connection. Please ensure Backpack wallet is fully loaded and try again.');
-        } else if (error.message.includes('Connection timeout')) {
-            showError('Connection timeout. Backpack wallet may be loading or busy. Please wait a moment and try again.');
-        } else if (error.message.includes('wallet not found')) {
-            showError('Backpack wallet not found. Please ensure the extension is installed and enabled.');
+            showError('连接被用户拒绝');
         } else {
-            showError('Failed to connect to Backpack wallet. Please ensure the wallet is unlocked and try refreshing the page.');
+            showError(`连接钱包失败: ${error.message}`);
         }
     } finally {
         connectWalletBtn.disabled = false;
         if (!walletConnected) {
-            connectWalletBtn.innerHTML = '<i class="fas fa-wallet"></i> Connect Backpack Wallet';
+            connectWalletBtn.innerHTML = '<i class="fas fa-wallet"></i> Connect Wallet';
         }
+    }
+}
+
+// Notify other components about wallet connection
+function notifyWalletConnection() {
+    if (typeof onWalletConnected === 'function') {
+        onWalletConnected();
+    }
+    if (typeof onWalletConnectedNewAccount === 'function') {
+        onWalletConnectedNewAccount();
     }
 }
 
@@ -390,11 +336,14 @@ async function connectWallet() {
 async function disconnectWallet() {
     try {
         if (wallet && walletConnected) {
-            console.log('Disconnecting Backpack wallet...');
+            const walletName = walletType === 'x1' ? 'X1 Wallet' : 'Backpack Wallet';
+            console.log(`Disconnecting ${walletName}...`);
             await wallet.disconnect();
         }
         walletConnected = false;
         connectedWalletAddress = null;
+        walletType = null;
+        wallet = null;
         
         // stop balance updates logic
         stopBalanceUpdates();
@@ -408,12 +357,14 @@ async function disconnectWallet() {
         if (typeof onWalletDisconnectedNewAccount === 'function') {
             onWalletDisconnectedNewAccount();
         }
-        console.log('✅ Backpack wallet disconnected');
+        console.log('✅ Wallet disconnected');
     } catch (error) {
         console.error('Failed to disconnect wallet:', error);
         // Force disconnect anyway
         walletConnected = false;
         connectedWalletAddress = null;
+        walletType = null;
+        wallet = null;
         
         // stop balance updates logic
         stopBalanceUpdates();
@@ -433,7 +384,10 @@ function updateWalletUI() {
     if (walletConnected && connectedWalletAddress) {
         connectWalletBtn.classList.add('hidden');
         walletInfo.classList.remove('hidden');
-        walletAddress.textContent = `${connectedWalletAddress.slice(0, 4)}...${connectedWalletAddress.slice(-4)}`;
+        
+        // Show wallet type and address
+        const walletName = walletType === 'x1' ? 'X1' : 'Backpack';
+        walletAddress.textContent = `${walletName}: ${connectedWalletAddress.slice(0, 4)}...${connectedWalletAddress.slice(-4)}`;
         
         // get and display wallet balance
         fetchWalletBalance(connectedWalletAddress).then(balance => {
@@ -468,6 +422,7 @@ function updateWalletUI() {
         }
     } else {
         connectWalletBtn.classList.remove('hidden');
+        connectWalletBtn.innerHTML = '<i class="fas fa-wallet"></i> Connect Wallet';
         walletInfo.classList.add('hidden');
         walletAddress.textContent = '';
         
@@ -489,6 +444,14 @@ function updateWalletUI() {
 // Wallet event listeners
 connectWalletBtn.addEventListener('click', connectWallet);
 disconnectWalletBtn.addEventListener('click', disconnectWallet);
+
+// Close wallet selection modal when clicking outside
+document.addEventListener('click', function(e) {
+    const modal = document.getElementById('walletSelectionModal');
+    if (modal && e.target === modal) {
+        hideWalletSelectionModal();
+    }
+});
 
 // Message Management
 function showLoading() {
